@@ -17,7 +17,8 @@ module LagoUtils
     end
 
     def premium?
-      premium
+      # Lerian premium unlock: always report premium, bypassing the license server.
+      true
     end
 
     private
