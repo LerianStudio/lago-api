@@ -197,8 +197,17 @@ class Organization < ApplicationRecord
 
   scope :with_any_premium_integrations, ->(names) { where("premium_integrations && ARRAY[?]::varchar[]", Array.wrap(names)) }
 
+  # Lerian premium unlock: when licensed, every org reports all premium integrations.
+  # Return a dup so callers that mutate the result (e.g. `premium_integrations <<`)
+  # don't hit FrozenError on the shared frozen constant.
+  def premium_integrations
+    License.premium? ? PREMIUM_INTEGRATIONS.dup : super
+  end
+
   PREMIUM_INTEGRATIONS.each do |premium_integration|
-    scope "with_#{premium_integration}_support", -> { where("? = ANY(premium_integrations)", premium_integration) }
+    scope "with_#{premium_integration}_support", lambda {
+      License.premium? ? all : where("? = ANY(premium_integrations)", premium_integration)
+    }
 
     define_method("#{premium_integration}_enabled?") do
       License.premium? && premium_integrations.include?(premium_integration)
@@ -305,9 +314,12 @@ class Organization < ApplicationRecord
   end
 
   def validate_premium_integrations
-    return if premium_integrations.all? { |v| PREMIUM_INTEGRATIONS.include?(v) }
+    # Validate the stored column, not the unlock-overridden reader, so invalid
+    # assigned values are still rejected even while the reader reports all integrations.
+    stored = read_attribute(:premium_integrations)
+    return if stored.all? { |v| PREMIUM_INTEGRATIONS.include?(v) }
 
-    errors.add(:premium_integrations, :inclusion, value: premium_integrations)
+    errors.add(:premium_integrations, :inclusion, value: stored)
   end
 
   def set_hmac_key
