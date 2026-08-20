@@ -1,0 +1,112 @@
+name: Build
+
+# Thin caller for the shared, language-agnostic Docker build workflow.
+# Publishes ghcr.io/lerianstudio/lago-api:<version> from the repo-root Dockerfile.
+#
+# This branch is the Lerian release line: upstream tag v1.33.4 plus the
+# three-file premium unlock, and nothing else. It is deliberately NOT `main`.
+# `main` tracks upstream untouched, which is the reason this fork exists.
+#
+# Deliberately NOT used: semantic-release, beta/rc channels, gitops auto-bump,
+# Helm dispatch. Tags are cut by hand and the AWS gitops repo is bumped by PR
+# (the sauron precedent — note rosiehr does the opposite and auto-bumps).
+
+on:
+  push:
+    tags:
+      # The `<upstream-semver>-lerian.<n>` fork convention, e.g. 1.33.4-lerian.1:
+      # the upstream release this image is built from, plus the revision of the
+      # Lerian patch on top of it.
+      #
+      # No leading `v`, and none is needed. The shared workflow's version sed
+      # only strips a monorepo `<app>-v<semver>` prefix, and metadata-action
+      # normalises a leading `v` away anyway, so `1.33.4-lerian.1` and
+      # `v1.33.4-lerian.1` publish the identical `:1.33.4-lerian.1`.
+      #
+      # Narrower than `v*` on purpose: this cannot fire on an ad-hoc tag like
+      # `nightly`, which is not valid semver and would leave metadata-action
+      # with an empty tag plan and break the push.
+      - '*-lerian.*'
+
+# Least privilege. Every entry is load-bearing:
+#   contents: read   -> actions/checkout of the tagged ref
+#   packages: write  -> push to ghcr.io/lerianstudio/*
+#   id-token: write  -> cosign keyless OIDC signing, which is on by default
+#                       upstream (enable_cosign_sign) and left on here
+# A reusable workflow cannot exceed the caller's grant, so dropping id-token
+# would fail signing at runtime rather than at parse time.
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  build:
+    uses: LerianStudio/github-actions-shared-workflows/.github/workflows/build.yml@v1.56.0
+    with:
+      # ─── Registry: GHCR only ───────────────────────────────────────────────
+      # enable_dockerhub defaults to TRUE upstream, so this MUST be set false or
+      # the build also publishes lerianstudio/lago-api to Docker Hub. That is
+      # not somewhere a license-unlocked image belongs, and it would need
+      # DOCKER_USERNAME / DOCKERHUB_IMAGE_PUSH_TOKEN besides.
+      enable_dockerhub: false
+      # Already the default; stated because it is the point of this file and it
+      # is what makes secrets.MANAGE_TOKEN load-bearing below.
+      enable_ghcr: true
+      # ghcr_org omitted: empty falls back to the lowercased repository owner,
+      # which is already `lerianstudio`.
+
+      # ─── Image name ────────────────────────────────────────────────────────
+      # Equal to the repository name today, so redundant — pinned anyway so a
+      # repository rename cannot silently retarget the image, and so the
+      # published name is greppable from this file.
+      app_name: lago-api
+
+      # dockerfile_name and build_context stay at their defaults. Leaving
+      # filter_paths empty selects single-app mode, which resolves the
+      # Dockerfile to ./Dockerfile with context . and skips monorepo change
+      # detection entirely.
+      #
+      # docker_build_args is intentionally NOT set. The v1.33.4 Dockerfile
+      # declares SEGMENT_WRITE_KEY, GOCARDLESS_CLIENT_ID and
+      # GOCARDLESS_CLIENT_SECRET as build args that upstream CI bakes into the
+      # public image as ENV. A Lerian build has none of those credentials and
+      # should not: verified against the live installation that no payment
+      # provider of any kind is configured (payment_providers,
+      # payment_provider_customers, payments and payment_requests are all
+      # empty), and that the GoCardless OAuth connect flow — the only consumer
+      # of those two vars — is already inoperable there because
+      # LAGO_OAUTH_PROXY_URL is unset. Nothing regresses by leaving them empty.
+
+      # ─── Release plumbing: off ─────────────────────────────────────────────
+      # The AWS gitops repo is bumped by PR, so there is no artifact to hand to
+      # gitops-update.yml. That workflow resolves clusters from
+      # config/deployment-matrix.yml, which has no devops/AWS entry at all.
+      enable_gitops_artifacts: false
+      # No Helm chart is driven from this image. Not merely cosmetic: this tag
+      # shape yields is_release=true upstream, so dispatch WOULD fire if this
+      # were flipped on with a chart configured.
+      enable_helm_dispatch: false
+
+      # runner_type is deliberately omitted: the org variable GENERAL_RUNNERS
+      # takes precedence over it in the shared workflow's runs-on expression,
+      # which makes the input a no-op. Use build_runner_type if this build ever
+      # needs a bigger box.
+
+    # ⛔ MANDATORY, not stylistic. build.yml declares NO `secrets:` block on its
+    # workflow_call and reads secrets.MANAGE_TOKEN implicitly for the GHCR
+    # login. Without `inherit` the login gets an empty password and fails.
+    # MANAGE_TOKEN has org visibility `all`, so it reaches this public repo.
+    # SLACK_WEBHOOK_URL is `private` and therefore absent here — harmless, the
+    # notify step declares it optional and skips cleanly.
+    secrets: inherit
+
+# ⚠ KNOWN COST: this build produces linux/amd64 AND linux/arm64.
+# The shared workflow hardcodes amd64-only for tags containing the literal
+# `-beta` or `-rc`, and multi-arch for everything else; there is no input to
+# turn arm64 off. Our tag is a valid semver prerelease but says `lerian`, so it
+# takes the multi-arch branch. The arm64 leg runs under QEMU and compiles this
+# image's native gems, so expect a slow build. Accepted deliberately rather
+# than distorting the tag: the cluster pulls amd64 from the manifest and the
+# cost is CI minutes on a build we cut by hand. The durable fix is a `platforms`
+# input upstream in github-actions-shared-workflows.
