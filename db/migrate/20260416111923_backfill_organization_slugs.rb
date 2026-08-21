@@ -12,6 +12,14 @@ class BackfillOrganizationSlugs < ActiveRecord::Migration[8.0]
   ].freeze
 
   def up
+    # Lerian patch: a single-process `db:migrate` reaches this migration with a
+    # stale column cache for `organizations`. 20260202155431 runs
+    # Organization.find_each, which caches the column set; 20260416111922 then
+    # adds `slug`. Without dropping that cache, `update_column(:slug, …)` below
+    # raises ActiveModel::MissingAttributeError. Upstream CI never hits this
+    # because it loads structure.sql instead of running the chain in sequence.
+    Organization.reset_column_information
+
     Organization.unscoped.find_each do |org|
       candidate = generate_slug_for(org.name)
       candidate = resolve_collision(candidate)

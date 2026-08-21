@@ -21,3 +21,30 @@ patches:
       does not match the visible lines. Not in any upstream release as of
       2026-08-21 (v1.51.0-55-gb0f75059b).
     drop_when: upstream cuts a release containing this commit
+  - name: fix-backfill-organization-slugs-column-cache
+    files:
+      - db/migrate/20260416111923_backfill_organization_slugs.rb
+    upstream_issue: >-
+      none. No upstream issue, PR or commit exists: `git log --all` on this
+      migration file returns the single commit that created it (8c8515605).
+      Found by the Lerian upgrade rehearsal on 2026-08-21, not reported
+      upstream.
+    reason: >-
+      a single-process `db:migrate` over the 249 migrations pending between
+      v1.33.4 and v1.51.0 dies here with
+      `ActiveModel::MissingAttributeError: can't write unknown attribute
+      'slug'`. Chain: 20260202155431 runs Organization.find_each, which
+      populates the per-process Organization column cache; 20260416111922 then
+      adds the `slug` column; this migration calls
+      `org.update_column(:slug, …)` against the stale cache and raises. Adding
+      `Organization.reset_column_information` as the first statement of `up`
+      is the canonical Rails fix. Upstream CI never reaches this state because
+      it loads db/structure.sql instead of running the chain in sequence, so
+      only self-hosted upgrades are affected.
+    schema_impact: >-
+      none. reset_column_information only drops an in-process column-metadata
+      memo; it emits no DDL and no DML. The final schema and the final
+      schema_migrations set are byte-identical with and without this patch.
+      NOTE: this is the one patch that edits a file under db/migrate/, which
+      is otherwise an invariant of this fork.
+    drop_when: upstream adds reset_column_information to this migration
