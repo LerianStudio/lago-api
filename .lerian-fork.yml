@@ -1,0 +1,23 @@
+upstream:
+  repo: https://github.com/getlago/lago-api
+  tag: v1.51.0
+  sha: 71680d30cf695c86c59510dbb201a12307fe31be
+lerian:
+  branch: lerian/1.51.0
+  version: 1.51.0-lerian.1
+  image: ghcr.io/lerianstudio/lago-api:1.51.0-lerian.1
+patches:
+  - name: premium-unlock
+    files:
+      - app/models/organization.rb
+      - app/serializers/admin/organization_serializer.rb
+      - lib/lago_utils/lago_utils/license.rb
+  - name: upstream-cherry-pick
+    commit: b0f75059bde0736bfec4c5fae75cba2bfe279b4d
+    upstream_pr: 6087
+    reason: >-
+      display zero-unit flat fees in the invoice PDF. Without it v1.51.0 charges
+      the flat fee but Fee.positive_units drops the line, so the invoice total
+      does not match the visible lines. Not in any upstream release as of
+      2026-08-21 (v1.51.0-55-gb0f75059b).
+    drop_when: upstream cuts a release containing this commit
