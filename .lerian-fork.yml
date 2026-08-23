@@ -4,8 +4,8 @@ upstream:
   sha: 71680d30cf695c86c59510dbb201a12307fe31be
 lerian:
   branch: lerian/1.51.0
-  version: 1.51.0-lerian.1
-  image: ghcr.io/lerianstudio/lago-api:1.51.0-lerian.1
+  version: 1.51.0-lerian.2
+  image: ghcr.io/lerianstudio/lago-api:1.51.0-lerian.2
 patches:
   - name: premium-unlock
     files:
@@ -48,3 +48,38 @@ patches:
       NOTE: this is the one patch that edits a file under db/migrate/, which
       is otherwise an invariant of this fork.
     drop_when: upstream adds reset_column_information to this migration
+  - name: data-api-guard-when-unconfigured
+    files:
+      - app/services/data_api/base_service.rb
+      - app/services/data_api/mrrs/plans_service.rb
+      - app/services/data_api/revenue_streams/plans_service.rb
+      - app/services/data_api/revenue_streams/customers_service.rb
+      - spec/spec_helper.rb
+      - spec/services/data_api/base_service_spec.rb
+    upstream_issue: >-
+      none. Searched getlago/lago-api for LAGO_DATA_API_URL and for
+      URI::InvalidComponentError: zero issues or pull requests. Found in Lerian
+      production on 2026-08-22, not reported upstream.
+    reason: >-
+      the Lago Data API is a separate component (getlago/data-api, a private
+      Docker Hub image) that is not deployed in any Lerian environment, so
+      LAGO_DATA_API_URL is unset. Upstream neither defaults nor validates it:
+      app/services/data_api/base_service.rb interpolated the blank value into a
+      host-less URL, LagoHttpClient::Client passed it to URI(), and the New
+      Relic net/http wrapper rebuilt it as "http://:80/..." and raised
+      URI::InvalidComponentError. Result: HTTP 500 on five GraphQL operations
+      (getRevenueStreams, getRevenueStreamsPlanBreakdown, getMrrs,
+      getMrrPlanBreakdown, getForecasts) and on the public REST route
+      GET /api/v1/analytics/usage, which has no premium gate at all. The guard
+      short-circuits to an empty but SUCCESSFUL payload when the variable is
+      blank. It must be successful, not a failure: the ten Data API resolvers
+      read result.<attribute> directly, never call raise_if_error!, and declare
+      their field null: false, so a failed result yields nil and raises
+      GraphQL::InvalidNullError - another 500. Raising is equally unusable, as
+      no rescue_from exists at schema or resolver level.
+    behaviour_when_configured: >-
+      unchanged. The guard fires only when LAGO_DATA_API_URL is nil or blank;
+      with a value present the HTTP path is identical to upstream.
+    drop_when: >-
+      the Data API is deployed and LAGO_DATA_API_URL is configured, or upstream
+      starts validating the variable itself

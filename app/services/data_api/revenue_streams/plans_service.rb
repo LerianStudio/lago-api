@@ -16,6 +16,14 @@ module DataApi
 
       private
 
+      # See DataApi::BaseService#unconfigured_payload. This resolver reads
+      # result.data_revenue_streams_plans["revenue_streams_plans"] and ["meta"], feeding
+      # Types::DataApi::Metadata whose five fields are all `null: false`, so the
+      # empty payload must be a keyed hash carrying full metadata, not an array.
+      def unconfigured_payload
+        {"revenue_streams_plans" => [], "meta" => DataApi::BaseService::EMPTY_METADATA}
+      end
+
       def action_path
         "revenue_streams/#{organization.id}/plans/"
       end

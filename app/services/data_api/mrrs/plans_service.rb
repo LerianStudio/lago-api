@@ -16,6 +16,14 @@ module DataApi
 
       private
 
+      # See DataApi::BaseService#unconfigured_payload. This resolver reads
+      # result.data_mrrs_plans["mrrs_plans"] and ["meta"], feeding
+      # Types::DataApi::Metadata whose five fields are all `null: false`, so the
+      # empty payload must be a keyed hash carrying full metadata, not an array.
+      def unconfigured_payload
+        {"mrrs_plans" => [], "meta" => DataApi::BaseService::EMPTY_METADATA}
+      end
+
       def action_path
         "mrrs/#{organization.id}/plans/"
       end

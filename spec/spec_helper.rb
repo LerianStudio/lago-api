@@ -69,6 +69,14 @@ end
 
 ENV["STRIPE_API_VERSION"] ||= "2020-08-27"
 
+# The Data API specs build their WebMock stubs from ENV["LAGO_DATA_API_URL"], so
+# with the variable unset they were asserting against a host-less URL such as
+# "/revenue_streams/<id>/". DataApi::BaseService now treats a blank value as
+# "Data API not deployed" and short-circuits to an empty payload, so give the
+# test environment a real base URL: these specs are meant to exercise the HTTP
+# path, and the short-circuit has its own spec.
+ENV["LAGO_DATA_API_URL"] ||= "http://data-api.test"
+
 Sentry.init do |config|
   config.dsn = "https://fake@sentry.io/123"
   config.enabled_environments = ["production"]
