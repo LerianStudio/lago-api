@@ -7,11 +7,19 @@ module DataApi
     def call
       response = http_client.get(headers:, params: filtered_params)
 
-      result.usages = response.map do |usage|
+      usages = response.map do |usage|
         code = usage["billable_metric_code"]
         usage["is_billable_metric_deleted"] = discarded_billable_metrics_codes.include?(code)
         usage
       end
+
+      # Lerian patch: this is the only Data API service that transforms the
+      # response, and Array#map returns a plain Array, dropping the Kaminari
+      # pagination wrapper that DataApi::BaseService#unconfigured_payload
+      # supplies and that collection_type's `metadata` field resolves from.
+      # On the unconfigured path keep the payload as-is - it is already empty,
+      # so the map produced nothing anyway. Untouched when configured.
+      result.usages = data_api_configured? ? usages : response
 
       result
     end

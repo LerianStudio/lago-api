@@ -51,6 +51,7 @@ patches:
   - name: data-api-guard-when-unconfigured
     files:
       - app/services/data_api/base_service.rb
+      - app/services/data_api/usages_service.rb
       - app/services/data_api/mrrs/plans_service.rb
       - app/services/data_api/revenue_streams/plans_service.rb
       - app/services/data_api/revenue_streams/customers_service.rb
