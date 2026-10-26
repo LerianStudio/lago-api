@@ -15,13 +15,17 @@ class MoneyHelper
   # Lerian invoice branding (lerian/invoice-branding): renders a table amount as separate currency
   # and number spans so currency codes and decimals line up across the invoice tables.
   # Accepts a Money or an already formatted String; the currency may be a prefix or a suffix.
+  # A minus in the amount ("-1.00 BRL", "-BRL 1.00", "BRL -1.00", "R$-1.00") is taken apart from the
+  # currency and rendered once, in front of it, also when the sign argument is already "-".
   def self.cell(money, sign = "")
     text = money.is_a?(String) ? money : format(money).to_s
-    match = text.match(/\A(\D*?)\s*(\d[\d.,]*)\s*(\D*)\z/)
-    currency = match ? (match[1].strip.presence || match[3].strip) : ""
-    number = match ? match[2] : text
+    match = text.match(/\A\s*(-?)\s*(\D*?)\s*(-?)\s*(\d[\d.,]*)\s*(\D*?)\s*\z/)
+    currency = match ? (match[2].presence || match[5]) : ""
+    number = match ? match[4] : text
+    negative = match && (match[1] == "-" || match[3] == "-")
+    prefix = (negative && !sign.include?("-")) ? "-#{sign}" : sign
 
-    "<span class=\"money\"><span class=\"cur\">#{ERB::Util.html_escape(sign + currency)}</span>" \
+    "<span class=\"money\"><span class=\"cur\">#{ERB::Util.html_escape(prefix + currency)}</span>" \
       "<span class=\"num\">#{ERB::Util.html_escape(number)}</span></span>"
   end
 

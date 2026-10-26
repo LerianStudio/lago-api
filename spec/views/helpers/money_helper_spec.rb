@@ -43,6 +43,30 @@ RSpec.describe MoneyHelper do
       expect(helper.cell("$1,234.56", "-")).to eq(cell_html("-$", "1,234.56"))
     end
 
+    it "keeps a suffixed currency on a negative amount" do
+      expect(helper.cell("-1.00 BRL")).to eq(cell_html("-BRL", "1.00"))
+    end
+
+    it "keeps a sign written before a prefixed currency" do
+      expect(helper.cell("-BRL 1.00")).to eq(cell_html("-BRL", "1.00"))
+    end
+
+    it "moves the minus of a prefixed ISO code amount in front of the currency" do
+      expect(helper.cell("BRL -1.00")).to eq(cell_html("-BRL", "1.00"))
+    end
+
+    it "moves the minus of a symbol amount in front of the currency" do
+      expect(helper.cell("R$-1.234,56")).to eq(cell_html("-R$", "1.234,56"))
+    end
+
+    it "renders the sign once when the amount is already negative" do
+      expect(helper.cell("-1.00 BRL", "-")).to eq(cell_html("-BRL", "1.00"))
+    end
+
+    it "formats a negative Money before splitting it" do
+      expect(helper.cell(Money.new(-123_456, "USD"))).to eq(cell_html("-$", "1,234.56"))
+    end
+
     it "formats a Money before splitting it" do
       expect(helper.cell(Money.new(123_456, "USD"))).to eq(cell_html("$", "1,234.56"))
     end
