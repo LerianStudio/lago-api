@@ -16,7 +16,7 @@ table.invoice-resume-table width="100%"
           td.body-2 = fee.amount_details['paid_units']
           td.body-2 = fee.amount_details['rate'] + '%'
           td.body-2 == TaxHelper.applied_taxes(fee)
-          td.body-2 = FeeDisplayHelper.format_as_currency(fee, fee.amount_details['per_unit_total_amount'])
+          td.body-2 == MoneyHelper.cell((FeeDisplayHelper.format_as_currency(fee, fee.amount_details['per_unit_total_amount'])))
       - else
         tr.charge-name.fee
           td.body-1
@@ -61,9 +61,9 @@ table.invoice-resume-table width="100%"
             - if fee.charge_filter_id?
               = ' • ' + fee.filter_display_name(separator: ' • ')
         td.body-2 = RoundingHelper.round_decimal_part(fee.units)
-        td.body-2 = FeeDisplayHelper.format_precise_unit_amount(fee)
+        td.body-2 == MoneyHelper.cell((FeeDisplayHelper.format_precise_unit_amount(fee)))
         td.body-2 == TaxHelper.applied_taxes(fee)
-        td.body-2 = FeeDisplayHelper.format_amount(fee)
+        td.body-2 == MoneyHelper.cell((FeeDisplayHelper.format_amount(fee)))
 
     == SlimHelper.render('templates/invoices/v4/_conversion_row', fee)
 
@@ -73,11 +73,11 @@ table.total-table width="100%"
       tr
         td.body-2
         td.body-2 #{credit.invoice_coupon_display_name}
-        td.body-2 = '-' +  MoneyHelper.format(credit.amount)
+        td.body-2 == MoneyHelper.cell((MoneyHelper.format(credit.amount)), '-')
   tr
     td.body-2
     td.body-2 = I18n.t('invoice.sub_total_without_tax')
-    td.body-2 = MoneyHelper.format(sub_total_excluding_taxes_amount)
+    td.body-2 == MoneyHelper.cell((MoneyHelper.format(sub_total_excluding_taxes_amount)))
   - if applied_taxes.present?
     - applied_taxes.order(tax_rate: :desc).each do |applied_tax|
       tr
@@ -88,23 +88,23 @@ table.total-table width="100%"
         - else
           td.body-2
           td.body-2 = I18n.t('invoice.tax_name', name: applied_tax.tax_name, rate: applied_tax.tax_rate, amount: MoneyHelper.format(applied_tax.taxable_amount))
-          td.body-2 = MoneyHelper.format(applied_tax.amount)
+          td.body-2 == MoneyHelper.cell((MoneyHelper.format(applied_tax.amount)))
   - else
     tr
       td.body-2
       td.body-2 = I18n.t('invoice.tax_name_with_details', name: 'Tax', rate: 0)
-      td.body-2 = MoneyHelper.format(0.to_money(currency))
+      td.body-2 == MoneyHelper.cell((MoneyHelper.format(0.to_money(currency))))
   tr
     td.body-2
     td.body-2 = I18n.t('invoice.sub_total_with_tax')
-    td.body-2 = MoneyHelper.format(sub_total_including_taxes_amount)
+    td.body-2 == MoneyHelper.cell((MoneyHelper.format(sub_total_including_taxes_amount)))
   - if credits.credit_note_kind.any?
     tr
       td.body-2
       td.body-2 = I18n.t('invoice.credit_notes')
-      td.body-2 = '-' +  MoneyHelper.format(credit_notes_amount)
+      td.body-2 == MoneyHelper.cell((MoneyHelper.format(credit_notes_amount)), '-')
   == SlimHelper.render('templates/invoices/v4/_prepaid_credits', self)
   tr
     td.body-2
     td.body-1 = advance_charges? ? I18n.t('invoice.already_paid') : I18n.t('invoice.total')
-    td.body-1 = MoneyHelper.format(total_amount)
+    td.body-1 == MoneyHelper.cell((MoneyHelper.format(total_amount)))

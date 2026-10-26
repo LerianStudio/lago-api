@@ -22,6 +22,68 @@ RSpec.describe MoneyHelper do
     end
   end
 
+  describe ".cell" do
+    def cell_html(currency, number)
+      "<span class=\"money\"><span class=\"cur\">#{currency}</span><span class=\"num\">#{number}</span></span>"
+    end
+
+    it "splits a prefixed ISO code from the number" do
+      expect(helper.cell("BRL 1.234,56")).to eq(cell_html("BRL", "1.234,56"))
+    end
+
+    it "splits a prefixed symbol from the number" do
+      expect(helper.cell("$1,234.56")).to eq(cell_html("$", "1,234.56"))
+    end
+
+    it "splits a suffixed currency from the number" do
+      expect(helper.cell("1.234,56 €")).to eq(cell_html("€", "1.234,56"))
+    end
+
+    it "prepends the sign to the currency" do
+      expect(helper.cell("$1,234.56", "-")).to eq(cell_html("-$", "1,234.56"))
+    end
+
+    it "keeps a suffixed currency on a negative amount" do
+      expect(helper.cell("-1.00 BRL")).to eq(cell_html("-BRL", "1.00"))
+    end
+
+    it "keeps a sign written before a prefixed currency" do
+      expect(helper.cell("-BRL 1.00")).to eq(cell_html("-BRL", "1.00"))
+    end
+
+    it "moves the minus of a prefixed ISO code amount in front of the currency" do
+      expect(helper.cell("BRL -1.00")).to eq(cell_html("-BRL", "1.00"))
+    end
+
+    it "moves the minus of a symbol amount in front of the currency" do
+      expect(helper.cell("R$-1.234,56")).to eq(cell_html("-R$", "1.234,56"))
+    end
+
+    it "renders the sign once when the amount is already negative" do
+      expect(helper.cell("-1.00 BRL", "-")).to eq(cell_html("-BRL", "1.00"))
+    end
+
+    it "formats a negative Money before splitting it" do
+      expect(helper.cell(Money.new(-123_456, "USD"))).to eq(cell_html("-$", "1,234.56"))
+    end
+
+    it "formats a Money before splitting it" do
+      expect(helper.cell(Money.new(123_456, "USD"))).to eq(cell_html("$", "1,234.56"))
+    end
+
+    it "keeps a plain String without currency as the number" do
+      expect(helper.cell("12.5")).to eq(cell_html("", "12.5"))
+    end
+
+    it "keeps a String without digits whole and escapes it" do
+      expect(helper.cell("<b>N/A</b>")).to eq(cell_html("", "&lt;b&gt;N/A&lt;/b&gt;"))
+    end
+
+    it "renders empty spans for nil" do
+      expect(helper.cell(nil)).to eq(cell_html("", ""))
+    end
+  end
+
   describe ".format_with_precision" do
     let(:currency) { "USD" }
 

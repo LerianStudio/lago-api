@@ -4,8 +4,8 @@ upstream:
   sha: 71680d30cf695c86c59510dbb201a12307fe31be
 lerian:
   branch: lerian/1.51.0
-  version: 1.51.0-lerian.2
-  image: ghcr.io/lerianstudio/lago-api:1.51.0-lerian.2
+  version: 1.51.0-lerian.3
+  image: ghcr.io/lerianstudio/lago-api:1.51.0-lerian.3
 patches:
   - name: premium-unlock
     files:
@@ -84,3 +84,54 @@ patches:
     drop_when: >-
       the Data API is deployed and LAGO_DATA_API_URL is configured, or upstream
       starts validating the variable itself
+  - name: lerian-invoice-branding
+    files:
+      - app/views/helpers/money_helper.rb
+      - spec/views/helpers/money_helper_spec.rb
+      - app/views/templates/invoices/v4.slim
+      - app/views/templates/invoices/v4/charge.slim
+      - app/views/templates/invoices/v4/fixed_charge.slim
+      - app/views/templates/invoices/v4/one_off.slim
+      - app/views/templates/invoices/v4/self_billed.slim
+      - app/views/templates/invoices/v4/_charge.slim
+      - app/views/templates/invoices/v4/_charge_percentage.slim
+      - app/views/templates/invoices/v4/_conversion_row.slim
+      - app/views/templates/invoices/v4/_credit.slim
+      - app/views/templates/invoices/v4/_default_fee.slim
+      - app/views/templates/invoices/v4/_default_fee_with_filters.slim
+      - app/views/templates/invoices/v4/_fixed_charge.slim
+      - app/views/templates/invoices/v4/_graduated.slim
+      - app/views/templates/invoices/v4/_graduated_percentage.slim
+      - app/views/templates/invoices/v4/_one_off.slim
+      - app/views/templates/invoices/v4/_package.slim
+      - app/views/templates/invoices/v4/_percentage.slim
+      - app/views/templates/invoices/v4/_prepaid_credits.slim
+      - app/views/templates/invoices/v4/_progressive_billing_details.slim
+      - app/views/templates/invoices/v4/_subscription_details.slim
+      - app/views/templates/invoices/v4/_subscriptions_summary.slim
+      - app/views/templates/invoices/v4/_true_up_fee.slim
+      - app/views/templates/invoices/v4/_volume.slim
+      - lerian/invoice-branding/
+      - spec/views/app/views/templates/invoices/__snapshots__/templates_invoices_v4.slim/
+      - spec/views/app/views/templates/invoices/v4/__snapshots__/
+    reason: >-
+      branding of the customer-facing invoice PDFs issued to Lerian Clients.
+      Upstream Lago OSS has no per-organization template customisation, so the
+      v4 invoice template itself is patched: embedded Inter and IBM Plex Mono,
+      a header card with the Lerian wordmark (the billing entity logo still
+      wins), status/issuing/due-date chips, aligned money cells via
+      MoneyHelper.cell, a payment detail block and a brand footer instead of
+      the powered-by logo, in v4.slim and in the standalone one_off, charge,
+      fixed_charge and self_billed roots. MoneyHelper.cell is the one Ruby
+      addition, a presentational helper in app/views/helpers/money_helper.rb;
+      no data logic changes.
+    regenerate: >-
+      python3 lerian/invoice-branding/build_template.py. It reads the pristine
+      templates with `git show <upstream.sha>` and overwrites v4.slim and v4/
+      in place; never hand-edit the generated files. MoneyHelper.cell and its
+      spec are hand-maintained, not generated.
+    drop_when: >-
+      never while Lerian invoices need branding. On every upstream bump,
+      re-run the generator against the new upstream.sha, update the invoice
+      view spec snapshots after reading their diff, and re-validate a real
+      PDF render.
