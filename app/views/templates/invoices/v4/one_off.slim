@@ -264,6 +264,8 @@ html
       .invoice-resume-table td:nth-child(3) { width: 19%; max-width: none; }
       .invoice-resume-table td:nth-child(4) { width: 16%; }
       .invoice-resume-table td:nth-child(5) { width: 19%; max-width: none; }
+      /* one_off.slim sets `tr td:last-child { width: 18% }` (higher specificity): keep the 5th column at 19% so every root shares one grid */
+      .invoice-resume-table tr td:nth-child(5):last-child { width: 19%; }
       .invoice-resume-table td:not(:first-child) { padding-left: 8px; padding-right: 8px; }
       .invoice-resume-table td:last-child { padding-right: 12px; }
       .invoice-resume-table:has(td:nth-child(5)) { width: calc(100% - 1px); }
@@ -370,7 +372,7 @@ html
 
       .mb-24.amount-due
         .body-1 = I18n.t('invoice.total')
-        h2.title-2 == MoneyHelper.cell(total_amount.format(format: I18n.t('money.format'), decimal_mark: I18n.t('money.decimal_mark'), thousands_separator: I18n.t('money.thousands_separator')))
+        h2.title-2 == MoneyHelper.cell(total_amount)
 
       .invoice-resume.mb-24.overflow-auto
         == SlimHelper.render('templates/invoices/v4/_one_off', self)

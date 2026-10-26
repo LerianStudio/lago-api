@@ -323,6 +323,8 @@ html
       .invoice-resume-table td:nth-child(3) { width: 19%; max-width: none; }
       .invoice-resume-table td:nth-child(4) { width: 16%; }
       .invoice-resume-table td:nth-child(5) { width: 19%; max-width: none; }
+      /* one_off.slim sets `tr td:last-child { width: 18% }` (higher specificity): keep the 5th column at 19% so every root shares one grid */
+      .invoice-resume-table tr td:nth-child(5):last-child { width: 19%; }
       .invoice-resume-table td:not(:first-child) { padding-left: 8px; padding-right: 8px; }
       .invoice-resume-table td:last-child { padding-right: 12px; }
       .invoice-resume-table:has(td:nth-child(5)) { width: calc(100% - 1px); }

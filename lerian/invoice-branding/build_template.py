@@ -117,6 +117,8 @@ extra_css = """
       .invoice-resume-table td:nth-child(3) { width: 19%; max-width: none; }
       .invoice-resume-table td:nth-child(4) { width: 16%; }
       .invoice-resume-table td:nth-child(5) { width: 19%; max-width: none; }
+      /* one_off.slim sets `tr td:last-child { width: 18% }` (higher specificity): keep the 5th column at 19% so every root shares one grid */
+      .invoice-resume-table tr td:nth-child(5):last-child { width: 19%; }
       .invoice-resume-table td:not(:first-child) { padding-left: 8px; padding-right: 8px; }
       .invoice-resume-table td:last-child { padding-right: 12px; }
       .invoice-resume-table:has(td:nth-child(5)) { width: calc(100% - 1px); }
@@ -180,10 +182,13 @@ amount_re = re.compile(r"^      \.mb-24\n        h2\.title-2\.mb-4 = (.+)\n     
 
 
 def new_amount(total_expr):
+    # one_off.slim formats the total with total_amount.format(money.format, ...), i.e. the currency symbol;
+    # every root passes the Money itself so the panel reads the ISO code like the tables (BRL, not R$).
     m = re.fullmatch(r"MoneyHelper\.format\((.+)\)", total_expr)
+    money = m.group(1) if m else ("total_amount" if total_expr.startswith("total_amount.format(") else total_expr)
     return f"""      .mb-24.amount-due
         .body-1 = I18n.t('invoice.total')
-        h2.title-2 == MoneyHelper.cell({m.group(1) if m else total_expr})
+        h2.title-2 == MoneyHelper.cell({money})
 """
 
 # 5. Footer: invoice_footer becomes "Payment detail"; drop the watermark; add the quiet brand footer.
