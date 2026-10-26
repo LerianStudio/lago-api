@@ -115,24 +115,30 @@
             <td class="body-1">Prepaid Credits</td>
             <td class="body-2">500.0</td>
             <td class="body-2">1.0</td>
-            <td class="body-2">$500.00</td>
+            <td class="body-2">
+              <span class="money">
+                <span class="cur">$</span>
+                <span class="num">500.00</span>
+              </span>
+            </td>
           </tr>
         </table>
         <table class="total-table" width="100%">
           <tr>
             <td class="body-2"></td>
             <td class="body-1">Total</td>
-            <td class="body-1">$500.00</td>
+            <td class="body-1">
+              <span class="money">
+                <span class="cur">$</span>
+                <span class="num">500.00</span>
+              </span>
+            </td>
           </tr>
         </table>
       </div>
       <p class="body-3 mb-24">
         This self-billing invoice was issued by the client on behalf of the partner, with their consent. The partner has agreed not to issue their own invoice for this transaction.
       </p>
-      <div class="powered-by">
-        <span class="body-2">Powered by &nbsp;</span>
-        <img alt="Lago Logo" src="lago-logo-invoice.png" />
-      </div>
     </div>
   </body>
 </html>

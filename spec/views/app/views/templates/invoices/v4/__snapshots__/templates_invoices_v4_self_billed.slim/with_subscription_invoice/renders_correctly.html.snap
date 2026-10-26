@@ -117,11 +117,21 @@
             <tr class="fee">
               <td class="body-1">Partner Plan - Monthly</td>
               <td class="body-2">1.0</td>
-              <td class="body-2">$0.00</td>
+              <td class="body-2">
+                <span class="money">
+                  <span class="cur">$</span>
+                  <span class="num">0.00</span>
+                </span>
+              </td>
               <td class="body-2">
                 <div>0.0%</div>
               </td>
-              <td class="body-2">$100.00</td>
+              <td class="body-2">
+                <span class="money">
+                  <span class="cur">$</span>
+                  <span class="num">100.00</span>
+                </span>
+              </td>
             </tr>
           </table>
         </div>
@@ -130,22 +140,42 @@
             <tr>
               <td class="body-2"></td>
               <td class="body-2">Subtotal (excl. tax)</td>
-              <td class="body-2">$100.00</td>
+              <td class="body-2">
+                <span class="money">
+                  <span class="cur">$</span>
+                  <span class="num">100.00</span>
+                </span>
+              </td>
             </tr>
             <tr>
               <td class="body-2"></td>
               <td class="body-2">Tax (0%)</td>
-              <td class="body-2">$0.00</td>
+              <td class="body-2">
+                <span class="money">
+                  <span class="cur">$</span>
+                  <span class="num">0.00</span>
+                </span>
+              </td>
             </tr>
             <tr>
               <td class="body-2"></td>
               <td class="body-2">Subtotal (incl. tax)</td>
-              <td class="body-2">$100.00</td>
+              <td class="body-2">
+                <span class="money">
+                  <span class="cur">$</span>
+                  <span class="num">100.00</span>
+                </span>
+              </td>
             </tr>
             <tr>
               <td class="body-2"></td>
               <td class="body-1">Total</td>
-              <td class="body-1">$100.00</td>
+              <td class="body-1">
+                <span class="money">
+                  <span class="cur">$</span>
+                  <span class="num">100.00</span>
+                </span>
+              </td>
             </tr>
           </table>
         </div>
@@ -153,10 +183,6 @@
       <p class="body-3 mb-24">
         This self-billing invoice was issued by the client on behalf of the partner, with their consent. The partner has agreed not to issue their own invoice for this transaction.
       </p>
-      <div class="powered-by">
-        <span class="body-2">Powered by &nbsp;</span>
-        <img alt="Lago Logo" src="lago-logo-invoice.png" />
-      </div>
     </div>
   </body>
 </html>

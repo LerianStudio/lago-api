@@ -119,11 +119,21 @@
                 <div class="body-1">Fixed Charge</div>
               </td>
               <td class="body-2">2</td>
-              <td class="body-2">$25.00</td>
+              <td class="body-2">
+                <span class="money">
+                  <span class="cur">$</span>
+                  <span class="num">25.00</span>
+                </span>
+              </td>
               <td class="body-2">
                 <div>0.0%</div>
               </td>
-              <td class="body-2">$50.00</td>
+              <td class="body-2">
+                <span class="money">
+                  <span class="cur">$</span>
+                  <span class="num">50.00</span>
+                </span>
+              </td>
             </tr>
           </table>
         </div>
@@ -131,41 +141,67 @@
           <tr>
             <td class="body-2"></td>
             <td class="body-2">Subtotal (excl. tax)</td>
-            <td class="body-2">$50.00</td>
+            <td class="body-2">
+              <span class="money">
+                <span class="cur">$</span>
+                <span class="num">50.00</span>
+              </span>
+            </td>
           </tr>
           <tr>
             <td class="body-2"></td>
             <td class="body-2">Tax (0%)</td>
-            <td class="body-2">$0.00</td>
+            <td class="body-2">
+              <span class="money">
+                <span class="cur">$</span>
+                <span class="num">0.00</span>
+              </span>
+            </td>
           </tr>
           <tr>
             <td class="body-2"></td>
             <td class="body-2">Subtotal (incl. tax)</td>
-            <td class="body-2">$50.00</td>
+            <td class="body-2">
+              <span class="money">
+                <span class="cur">$</span>
+                <span class="num">50.00</span>
+              </span>
+            </td>
           </tr>
           <tr>
             <td class="body-2"></td>
             <td class="body-2">Free credits</td>
-            <td class="body-2">-$4.00</td>
+            <td class="body-2">
+              <span class="money">
+                <span class="cur">-$</span>
+                <span class="num">4.00</span>
+              </span>
+            </td>
           </tr>
           <tr>
             <td class="body-2"></td>
             <td class="body-2">Prepaid credits</td>
-            <td class="body-2">-$6.00</td>
+            <td class="body-2">
+              <span class="money">
+                <span class="cur">-$</span>
+                <span class="num">6.00</span>
+              </span>
+            </td>
           </tr>
           <tr>
             <td class="body-2"></td>
             <td class="body-1">Total</td>
-            <td class="body-1">$40.00</td>
+            <td class="body-1">
+              <span class="money">
+                <span class="cur">$</span>
+                <span class="num">40.00</span>
+              </span>
+            </td>
           </tr>
         </table>
       </div>
       <p class="body-3 mb-24">
       </p>
-      <div class="powered-by">
-        <span class="body-2">Powered by &nbsp;</span>
-        <img alt="Lago Logo" src="lago-logo-invoice.png" />
-      </div>
     </div>
   </body>
 </html>

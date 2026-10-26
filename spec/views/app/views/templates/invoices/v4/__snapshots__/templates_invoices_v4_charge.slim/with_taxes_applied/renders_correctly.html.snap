@@ -116,42 +116,68 @@
           <tr class="fee">
             <td class="body-1">Taxable Charge</td>
             <td class="body-2">10</td>
-            <td class="body-2">$5.00</td>
+            <td class="body-2">
+              <span class="money">
+                <span class="cur">$</span>
+                <span class="num">5.00</span>
+              </span>
+            </td>
             <td class="body-2">
               <div>0.0%</div>
             </td>
-            <td class="body-2">$50.00</td>
+            <td class="body-2">
+              <span class="money">
+                <span class="cur">$</span>
+                <span class="num">50.00</span>
+              </span>
+            </td>
           </tr>
         </table>
         <table class="total-table" width="100%">
           <tr>
             <td class="body-2"></td>
             <td class="body-2">Subtotal (excl. tax)</td>
-            <td class="body-2">$50.00</td>
+            <td class="body-2">
+              <span class="money">
+                <span class="cur">$</span>
+                <span class="num">50.00</span>
+              </span>
+            </td>
           </tr>
           <tr>
             <td class="body-2"></td>
             <td class="body-2">VAT (20.0% on $50.00)</td>
-            <td class="body-2">$10.00</td>
+            <td class="body-2">
+              <span class="money">
+                <span class="cur">$</span>
+                <span class="num">10.00</span>
+              </span>
+            </td>
           </tr>
           <tr>
             <td class="body-2"></td>
             <td class="body-2">Subtotal (incl. tax)</td>
-            <td class="body-2">$60.00</td>
+            <td class="body-2">
+              <span class="money">
+                <span class="cur">$</span>
+                <span class="num">60.00</span>
+              </span>
+            </td>
           </tr>
           <tr>
             <td class="body-2"></td>
             <td class="body-1">Total</td>
-            <td class="body-1">$60.00</td>
+            <td class="body-1">
+              <span class="money">
+                <span class="cur">$</span>
+                <span class="num">60.00</span>
+              </span>
+            </td>
           </tr>
         </table>
       </div>
       <p class="body-3 mb-24">
       </p>
-      <div class="powered-by">
-        <span class="body-2">Powered by &nbsp;</span>
-        <img alt="Lago Logo" src="lago-logo-invoice.png" />
-      </div>
     </div>
   </body>
 </html>
