@@ -13,7 +13,8 @@ Input: the pristine upstream templates, read with `git show <sha>:<path>`
 where <sha> is `upstream.sha` in .lerian-fork.yml, so the patch is always
 rebuilt from upstream and never from an already branded copy.
 Output: app/views/templates/invoices/v4.slim and v4/*.slim, overwritten in
-place. Run from anywhere inside the repo: python3 lerian/invoice-branding/build_template.py
+place. v4.slim and the standalone roots (v4/one_off, charge, fixed_charge,
+self_billed) get the brand; the other partials only get aligned amount cells. Run from anywhere inside the repo: python3 lerian/invoice-branding/build_template.py
 """
 import base64, pathlib, re, subprocess
 
@@ -37,15 +38,12 @@ def upstream(path):
     return git("show", f"{UPSTREAM_SHA}:{path}").decode("utf-8")
 
 
-src = upstream(f"{TEMPLATES}/v4.slim")
 logo = base64.b64encode((HERE / "lerian-logo.png").read_bytes()).decode()
 inter = base64.b64encode((HERE / "fonts/inter-400-normal.woff2").read_bytes()).decode()
 mono400 = base64.b64encode((HERE / "fonts/ibm-plex-mono-400-latin.woff2").read_bytes()).decode()
 mono600 = base64.b64encode((HERE / "fonts/ibm-plex-mono-600-latin.woff2").read_bytes()).decode()
 
 # 1. Fonts and tokens replace the Inter local() block (first @font-face up to the h1/h2/p reset)
-start = src.index("      @font-face {")
-end = src.index("      h1, h2, p { margin: 0; padding: 0; }")
 head = f"""      @font-face {{
         font-family: 'Inter';
         font-style: normal;
@@ -76,17 +74,8 @@ head = f"""      @font-face {{
         --mono: 'IBM Plex Mono', 'DejaVu Sans Mono', ui-monospace, Menlo, monospace;
       }}
 """
-src = src[:start] + head + src[end:]
 
-# 2. Typography and colours
-src = src.replace("html { font-family: Inter, sans-serif; }",
-                  "html { font-family: Inter, sans-serif; color: var(--ink); }\n      body { padding-bottom: 0; }")
-src = src.replace("#19212e", "var(--ink)").replace("#19212E", "var(--ink)")
-src = src.replace("#66758f", "var(--muted)").replace("#66758F", "var(--muted)")
-src = src.replace("h1 { color: var(--ink); font-weight: 700; font-size: 24px; line-height: 32px; }",
-                  "h1 { color: var(--ink); font-weight: 700; font-size: 26px; line-height: 32px; letter-spacing: -0.3px; }")
-src = src.replace("      .body-1 {\n        color: var(--ink);\n        font-weight: 600;",
-                  "      .body-1 {\n        color: var(--muted);\n        font-weight: 600;\n        text-transform: uppercase;\n        letter-spacing: 0.5px;")
+# 2. Typography and colours (applied in brand() below), plus the extra rules inserted before `.alert {`
 
 extra_css = """
       .brand-card { display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; }
@@ -148,9 +137,9 @@ extra_css = """
       .brand-footer .meta { font-family: var(--mono); font-size: 7.5px; line-height: 11px; color: var(--muted); text-align: right; }
       .brand-footer .meta b { color: var(--ink); font-weight: 600; }
 """
-src = src.replace("      .alert {", extra_css + "      .alert {", 1)
 
-# 3. Header card + title + chips
+# 3. Header card + title + chips. self_billed has no billing entity logo upstream (the document is
+# issued on behalf of the customer), so it only gets the Lerian wordmark.
 old_header = """    .wrapper
       .mb-24
         h1.invoice-title = document_invoice_name
@@ -172,34 +161,46 @@ new_header = """    .wrapper
       .chips
         span.chip.dark = status_label
         span.chip = I18n.l(issuing_date, format: :default)
-        span.chip.accent = I18n.t('invoice.due_date', date: I18n.l(payment_due_date, format: :default))
+        span.chip.accent = DUE_EXPR
 """
-assert old_header in src
-src = src.replace(old_header, new_header).replace("LOGO_B64", logo)
+old_header_self_billed = """    .wrapper
+      .mb-24
+        h1.invoice-title = document_invoice_name
+"""
+new_header_self_billed = new_header.replace("""        - if billing_entity.logo.present?
+          img src="data:#{billing_entity.logo.content_type};base64,#{billing_entity.base64_logo}"
+        - else
+          img src="data:image/png;base64,LOGO_B64" alt="Lerian"
+""", """        img src="data:image/png;base64,LOGO_B64" alt="Lerian"
+""")
 
-# 4. Amount due as a quiet panel
-old_amount = """      .mb-24
-        h2.title-2.mb-4 = MoneyHelper.format(total_amount)
-        .body-1 = I18n.t('invoice.due_date', date: I18n.l(payment_due_date, format: :default))
-"""
-new_amount = """      .mb-24.amount-due
+# 4. Amount due as a quiet panel. The line under the amount (due date, or "already paid" for advance
+# charges) moves into the accent chip of the header.
+amount_re = re.compile(r"^      \.mb-24\n        h2\.title-2\.mb-4 = (.+)\n        \.body-1 = (.+)\n", re.M)
+
+
+def new_amount(total_expr):
+    m = re.fullmatch(r"MoneyHelper\.format\((.+)\)", total_expr)
+    return f"""      .mb-24.amount-due
         .body-1 = I18n.t('invoice.total')
-        h2.title-2 == MoneyHelper.cell(total_amount)
+        h2.title-2 == MoneyHelper.cell({m.group(1) if m else total_expr})
 """
-assert old_amount in src
-src = src.replace(old_amount, new_amount)
 
-# 5. Footer: invoice_footer becomes "Payment detail"; drop the watermark; add the quiet brand footer
+# 5. Footer: invoice_footer becomes "Payment detail"; drop the watermark; add the quiet brand footer.
+# self_billed keeps its legal self-billing statement and only swaps the watermark for the brand footer.
 old_footer = """      p.body-3.mb-24 = LineBreakHelper.break_lines(billing_entity.invoice_footer)
 
       == SlimHelper.render('templates/invoices/v4/_powered_by_logo', self)
 """
-new_footer = """      - if billing_entity.invoice_footer.present?
+old_footer_self_billed = """      == SlimHelper.render('templates/invoices/v4/_powered_by_logo', self)
+"""
+payment_block = """      - if billing_entity.invoice_footer.present?
         .mb-24.payment-block
           p.body-1.mb-4 = I18n.locale.to_s.start_with?('pt') ? 'Dados de pagamento' : 'Payment detail'
           p.body-2.payment-detail = LineBreakHelper.break_lines(billing_entity.invoice_footer)
 
-      .brand-footer
+"""
+brand_footer = """      .brand-footer
         .left
           img src="data:image/png;base64,LOGO_B64" alt="Lerian"
           .studio
@@ -211,8 +212,47 @@ new_footer = """      - if billing_entity.invoice_footer.present?
           | #{document_invoice_name} #{number} · #{I18n.l(issuing_date, format: :default)}
 
 """
-assert old_footer in src
-src = src.replace(old_footer, new_footer).replace("LOGO_B64", logo)
+
+
+def replace_once(src, old, new, what):
+    assert src.count(old) == 1, f"{what}: expected exactly one match upstream, found {src.count(old)}"
+    return src.replace(old, new)
+
+
+def brand(src, name):
+    """Apply steps 1-5 to a root invoice template (v4.slim or a standalone v4/<kind>.slim)."""
+    start = src.index("      @font-face {")
+    end = src.index("      h1, h2, p { margin: 0; padding: 0; }")
+    src = src[:start] + head + src[end:]
+    src = src.replace("html { font-family: Inter, sans-serif; }",
+                      "html { font-family: Inter, sans-serif; color: var(--ink); }\n      body { padding-bottom: 0; }")
+    src = src.replace("#19212e", "var(--ink)").replace("#19212E", "var(--ink)")
+    src = src.replace("#66758f", "var(--muted)").replace("#66758F", "var(--muted)")
+    src = src.replace("h1 { color: var(--ink); font-weight: 700; font-size: 24px; line-height: 32px; }",
+                      "h1 { color: var(--ink); font-weight: 700; font-size: 26px; line-height: 32px; letter-spacing: -0.3px; }")
+    src = src.replace("      .body-1 {\n        color: var(--ink);\n        font-weight: 600;",
+                      "      .body-1 {\n        color: var(--muted);\n        font-weight: 600;\n        text-transform: uppercase;\n        letter-spacing: 0.5px;")
+    src = replace_once(src, "      .alert {", extra_css + "      .alert {", f"{name}: .alert")
+
+    amounts = amount_re.findall(src)
+    assert len(amounts) == 1, f"{name}: expected one amount block upstream, found {len(amounts)}"
+    total_expr, due_expr = amounts[0]
+    src = amount_re.sub(lambda _: new_amount(total_expr), src)
+
+    if name == "self_billed":
+        src = replace_once(src, old_header_self_billed, new_header_self_billed.replace("DUE_EXPR", due_expr), f"{name}: header")
+        src = replace_once(src, old_footer_self_billed, brand_footer, f"{name}: footer")
+    else:
+        src = replace_once(src, old_header, new_header.replace("DUE_EXPR", due_expr), f"{name}: header")
+        src = replace_once(src, old_footer, payment_block + brand_footer, f"{name}: footer")
+    return src.replace("LOGO_B64", logo)
+
+
+# Root templates Lago picks per invoice (Invoices::GeneratePdfService#template): v4.slim for subscription
+# and progressive billing invoices, the standalone ones for one-off, advance charge, fixed charge and
+# self-billed invoices. All of them get the brand.
+STANDALONE = {"one_off", "charge", "fixed_charge", "self_billed"}
+src = brand(upstream(f"{TEMPLATES}/v4.slim"), "v4")
 
 # 6. Partials: td cells whose whole content is MoneyHelper.format(...) become MoneyHelper.cell(...)
 cell_re = re.compile(r"^(\s*)(td\.body-\d\s+)?=\s*(?:'-'\s*\+\s*)?((?:MoneyHelper\.format|FeeDisplayHelper\.format_(?:amount|precise_unit_amount|as_currency|with_precision))\(.*\))\s*$")
@@ -232,7 +272,11 @@ for name in names:
             ln = f"{indent}{tag}== MoneyHelper.cell(({expr}){sign})"
             changed += 1
         out_lines.append(ln)
-    (pdir / pathlib.PurePosixPath(name).name).write_text("\n".join(out_lines), encoding="utf-8")
+    text = "\n".join(out_lines)
+    stem = pathlib.PurePosixPath(name).stem
+    if stem in STANDALONE:
+        text = brand(text, stem)
+    (pdir / pathlib.PurePosixPath(name).name).write_text(text, encoding="utf-8")
 print(f"partials: {changed} amount cells converted in {len(names)} files under {pdir.relative_to(REPO)}")
 
 out = REPO / TEMPLATES / "v4.slim"

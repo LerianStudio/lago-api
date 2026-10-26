@@ -11,6 +11,12 @@ edit them by hand: change `build_template.py` and regenerate.
 
 ## What changes in the PDF
 
+Every root invoice template Lago picks (`Invoices::GeneratePdfService#template`)
+gets the brand: `v4.slim` (subscription and progressive billing invoices) and
+the standalone `v4/one_off.slim`, `v4/charge.slim` (pay-in-advance charges),
+`v4/fixed_charge.slim` and `v4/self_billed.slim`. The other `v4/` partials only
+get aligned amount cells.
+
 - Inter and IBM Plex Mono are embedded as base64 `@font-face` (no network
   fetch at render time); colours move to zinc neutral tokens, with yellow
   `#FACC15` used only as a thin rule under table heads and on the due-date chip.
@@ -20,7 +26,11 @@ edit them by hand: change `build_template.py` and regenerate.
 - Status, issuing-date and due-date chips. The status label is pt/en
   (`Pendente`/`Pending`, `Pago`/`Paid`, `Falhou`/`Failed`), and voided invoices
   read `Cancelada`/`Voided`.
-- Amount panel labelled `Total`, without the due date (it is in the chips).
+- Amount panel labelled `Total`. The line upstream shows under the amount (the
+  due date, or `invoice.already_paid` for advance charges) moves into the
+  accent chip.
+- `self_billed.slim` keeps its legal self-billing statement and, like upstream,
+  shows no billing entity logo (only the Lerian wordmark).
 - Every table amount is rendered by `MoneyHelper.cell`, defined once in
   `app/views/helpers/money_helper.rb` (part of this patch, not generated, with
   unit specs in `spec/views/helpers/money_helper_spec.rb`). It takes a Money or
@@ -71,6 +81,15 @@ over the image's, 28 invoices shaped like production ones were rendered to PDF,
 including a usage invoice with two billing-period groups and an
 English-locale customer. Column alignment of currency codes and decimals was
 measured with `pdftotext -bbox` across all tables.
+
+The generator in this directory was then re-validated on the same local Lago
+with the branch files mounted (templates and `money_helper.rb`): the 28
+subscription invoices regenerated without errors, and a one-off invoice, a
+pay-in-advance charge invoice (also with the `already paid` path) and a
+self-billed render were produced in pt-BR, with every amount column sharing one
+right edge (within 0.1pt). A fixed-charge invoice was not rendered (no fixed
+charge data locally); its template only differs from `charge.slim` in the data
+partials.
 
 Not covered by that render (the partials are converted, but no invoice
 exercised them): graduated, package, percentage and volume charge models,
