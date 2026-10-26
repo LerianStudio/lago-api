@@ -12,6 +12,19 @@ class MoneyHelper
     )
   end
 
+  # Lerian invoice branding (lerian/invoice-branding): renders a table amount as separate currency
+  # and number spans so currency codes and decimals line up across the invoice tables.
+  # Accepts a Money or an already formatted String; the currency may be a prefix or a suffix.
+  def self.cell(money, sign = "")
+    text = money.is_a?(String) ? money : format(money).to_s
+    match = text.match(/\A(\D*?)\s*(\d[\d.,]*)\s*(\D*)\z/)
+    currency = match ? (match[1].strip.presence || match[3].strip) : ""
+    number = match ? match[2] : text
+
+    "<span class=\"money\"><span class=\"cur\">#{ERB::Util.html_escape(sign + currency)}</span>" \
+      "<span class=\"num\">#{ERB::Util.html_escape(number)}</span></span>"
+  end
+
   def self.format_with_precision(amount_cents, currency)
     amount_cents = normalize_precision(amount_cents)
     money = Utils::MoneyWithPrecision.from_amount(amount_cents, currency)
