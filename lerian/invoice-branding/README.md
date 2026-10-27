@@ -46,9 +46,60 @@ get aligned amount cells.
 - 5-column fee tables use `table-layout: fixed` (38/8/19/16/19 %) and
   `calc(100% - 1px)` so mono amounts never clip.
 - `billing_entity.invoice_footer` is rendered as a `Dados de pagamento` /
-  `Payment detail` block; the `_powered_by_logo` partial is no longer rendered;
-  a quiet in-flow brand footer shows the wordmark, legal name, email and the
-  document reference.
+  `Payment detail` block; the `_powered_by_logo` partial is no longer rendered.
+- The brand footer is page chrome, not part of the body: see below.
+
+## Page footer
+
+`app/views/templates/documents/footer.slim` is also generated. It is the
+`footer.html` part that `Utils::PdfGenerator` posts to Gotenberg, a mechanism
+taken from upstream PR #6489 (commit `0447828b7`, first released in v1.54.0,
+cherry-picked onto this fork, see `.lerian-fork.yml`). Chromium renders it in
+the bottom margin of every page, so the footer can no longer land alone on a
+new page when the content ends near the page bottom, and multi-subscription
+invoices carry it on every page instead of page 1 only. Until lerian.4 it was
+an in-flow `.brand-footer` at the end of the body; the generator no longer
+emits it.
+
+Left: the Lerian wordmark, the billing entity legal name (or name) and email.
+Right: `Lerian Clients · Billing`, then the document reference
+(`<document name> <number> · <issuing date>`) and the localized
+`document.page_numbering` counter (`Página n de N`). Credit notes and payment
+receipts render the same footer; methods only invoices have are guarded with
+`respond_to?`, so a credit note shows `<number> · <issuing date>` and a
+payment receipt `<number>`, both followed by the counter.
+
+Chromium constraints the footer follows:
+
+- It is an isolated document, so every style is in its own `<style>` with an
+  explicit size, line height and colour on each text node (an unstyled footer
+  renders at zero size), and the wordmark is base64.
+- Chromium injects its own stylesheet into header and footer templates, with
+  rules for `.left`, `.center`, `.right`, `.date`, `.title`, `.url`,
+  `.pageNumber` and `.totalPages`. Our layout classes must avoid those names:
+  with `.left`, Chromium's padding pushed the wordmark and legal name 24pt to
+  the right of the hairline. The left column is `.brand`; only the counter
+  spans keep `.pageNumber` / `.totalPages`, which Chromium fills.
+- Every `@font-face` has `font-display: swap`. Without it, text whose font is
+  not loaded yet is invisible (block period): a footer rendered on its own
+  showed only the wordmark, and it only worked inside Lago because the body
+  had loaded the same data fonts first. Inter lists `local("Inter")` first
+  (the Gotenberg image ships Inter-Regular.ttf) with the data: url as
+  fallback; the image has no IBM Plex Mono, so its data: url comes first, with
+  `local()` after it, and the stack is
+  `'IBM Plex Mono', 'DejaVu Sans Mono', monospace`.
+- Gotenberg 8 does not apply `scale: 1.28` to the footer, so every value is
+  the former in-flow design value multiplied by 1.28. Gotenberg 7.8.2 (the
+  local `billing-worker-lago` pin) does scale it, so a render there is not
+  representative: validate the footer on Gotenberg 8.15, the version
+  production runs. It is always two lines
+(`nowrap`, a long legal name is ellipsized), so its height is fixed:
+1px rule + 7.68px top + 2 x 14.08px lines + 15.36px bottom = 52.2 CSS px
+(0.544in). Chromium draws the footer inside the bottom page margin, measured
+from the page edge, so `marginBottom` in `Utils::PdfGenerator` is 0.66in
+(63.4px): the footer plus about 11px between the last body line and the rule
+(the 8px design gap the in-flow footer had, x 1.28). Upstream uses 0.6in for
+its one-line, 43.2px footer.
 
 All Lago data logic (fees, taxes, coupons, credit notes, custom sections, EU
 tax, progressive billing) is untouched: only markup, CSS and the presentational
@@ -66,6 +117,21 @@ takes the pristine upstream `v4.slim` and `v4/*.slim` with `git show <sha>:<path
 non-shallow clone; on a shallow one, fetch it first),
 and overwrites `app/views/templates/invoices/v4.slim` and `v4/` in place.
 Partials without amount cells are written back unchanged.
+
+The page footer comes from upstream #6489. `FOOTER_SHA` in the script is the
+upstream commit (`0447828b7`), the identity of the patch; that object is not
+reachable from any fork ref, so the script resolves the file at run time:
+
+1. the fork's cherry-pick of it, found by its `git cherry-pick -x` line
+   (`git log --all --grep="cherry picked from commit <FOOTER_SHA>"`, first
+   match), whose sha changes on every rebase;
+2. otherwise `FOOTER_SHA` itself, present once the fork is on an upstream
+   release that contains #6489;
+3. otherwise it exits non-zero and asks for
+   `git fetch https://github.com/getlago/lago-api.git 0447828b740d70a4417f9e15fae04e42f07f6f3e`.
+
+Once the fork moves to an upstream release that contains #6489 (>= v1.54.0),
+point `FOOTER_SHA` at `upstream.sha` and drop the cherry-pick.
 
 On every upstream bump: update `upstream.sha`, run the script, review the diff,
 run `bundle exec rspec spec/views/app/views/templates/invoices`, update the
@@ -103,6 +169,16 @@ shape (76px from single-period invoices): header card, title, chips, block
 margins (`.mb-24`, `.mt-24` between period groups, the payment block), amount
 panel, table head cells, totals rows and footer. Font sizes, line heights,
 column widths and horizontal padding are unchanged.
+
+1.51.0-lerian.4 then moved the brand footer to the Gotenberg page footer
+(above). Locally, the generator was run twice (the second run leaves the tree
+unchanged), the invoice snapshots changed only by the removed in-flow footer,
+and `spec/services/utils/pdf_generator_spec.rb` plus
+`spec/views/app/views/templates/documents/footer.slim_spec.rb` cover the
+footer posted to Gotenberg for an invoice, a credit note and a payment
+receipt. The PDF render of the production-shaped invoices, the stress
+scenarios (wrapped legal name, five-line payment detail) and a
+multi-subscription invoice is done outside this repository.
 
 ## Assets and licences
 

@@ -14,7 +14,10 @@ where <sha> is `upstream.sha` in .lerian-fork.yml, so the patch is always
 rebuilt from upstream and never from an already branded copy.
 Output: app/views/templates/invoices/v4.slim and v4/*.slim, overwritten in
 place. v4.slim and the standalone roots (v4/one_off, charge, fixed_charge,
-self_billed) get the brand; the other partials only get aligned amount cells. Run from anywhere inside the repo: python3 lerian/invoice-branding/build_template.py
+self_billed) get the brand; the other partials only get aligned amount cells.
+Also app/views/templates/documents/footer.slim, the page footer Gotenberg
+repeats on every page, built from the upstream #6489 file (FOOTER_SHA, read from its cherry-pick).
+Run from anywhere inside the repo: python3 lerian/invoice-branding/build_template.py
 """
 import base64, pathlib, re, subprocess
 
@@ -106,7 +109,7 @@ extra_css = """
       .money .cur { text-align: left; }
       .money .num { text-align: right; font-variant-numeric: tabular-nums; }
       .amount-due .money { grid-template-columns: auto auto; column-gap: 8px; }
-      /* own bottom margin: it collapses with .brand-footer margin-top, so .mb-24 alone would keep the gap at 10px */
+      /* own bottom margin, so the payment block keeps the lerian.4 spacing whatever follows it */
       .payment-block { break-inside: avoid; margin-bottom: 8px; }
       /* tables: plain ink inside cells, body-1 muted/uppercase is for section labels only */
       .invoice-resume-table td.body-1, .invoice-resume-table td .body-1, .total-table td.body-1, .invoice-resume-table tr.charge-name td { color: var(--ink); text-transform: none; letter-spacing: 0; font-weight: 500; }
@@ -134,13 +137,6 @@ extra_css = """
       .invoice-resume .total-table tr:last-child td { color: var(--ink); }
       .invoice-resume .total-table tr td { padding-top: 5px; padding-bottom: 5px; }
       .payment-detail { white-space: pre-line; }
-            .brand-footer { border-top: 1px solid var(--border-color); padding-top: 6px; margin-top: 8px; display: flex; align-items: center; justify-content: space-between; }
-      .brand-footer .left { display: flex; align-items: center; gap: 10px; }
-      .brand-footer img { height: 12px; }
-      .brand-footer .studio { font-size: 8.5px; line-height: 11px; font-weight: 600; color: var(--ink); }
-      .brand-footer .studio span { display: block; font-weight: 400; color: var(--muted); }
-      .brand-footer .meta { font-family: var(--mono); font-size: 7.5px; line-height: 11px; color: var(--muted); text-align: right; }
-      .brand-footer .meta b { color: var(--ink); font-weight: 600; }
 """
 
 # 3. Header card + title + chips. self_billed has no billing entity logo upstream (the document is
@@ -194,31 +190,20 @@ def new_amount(total_expr):
         h2.title-2 == MoneyHelper.cell({money})
 """
 
-# 5. Footer: invoice_footer becomes "Payment detail"; drop the watermark; add the quiet brand footer.
-# self_billed keeps its legal self-billing statement and only swaps the watermark for the brand footer.
+# 5. Footer: invoice_footer becomes "Payment detail" and the watermark is dropped. The brand footer is not
+# part of the body: it is Gotenberg page chrome (documents/footer.slim, step 7), repeated on every page.
+# self_billed keeps its legal self-billing statement and only drops the watermark.
 old_footer = """      p.body-3.mb-24 = LineBreakHelper.break_lines(billing_entity.invoice_footer)
 
       == SlimHelper.render('templates/invoices/v4/_powered_by_logo', self)
 """
-old_footer_self_billed = """      == SlimHelper.render('templates/invoices/v4/_powered_by_logo', self)
+old_footer_self_billed = """
+      == SlimHelper.render('templates/invoices/v4/_powered_by_logo', self)
 """
 payment_block = """      - if billing_entity.invoice_footer.present?
         .mb-24.payment-block
           p.body-1.mb-4 = I18n.locale.to_s.start_with?('pt') ? 'Dados de pagamento' : 'Payment detail'
           p.body-2.payment-detail = LineBreakHelper.break_lines(billing_entity.invoice_footer)
-
-"""
-brand_footer = """      .brand-footer
-        .left
-          img src="data:image/png;base64,LOGO_B64" alt="Lerian"
-          .studio
-            | #{billing_entity.legal_name.presence || billing_entity.name}
-            span = billing_entity.email.presence || 'lerian.studio'
-        .meta
-          b Lerian Clients · Billing
-          br
-          | #{document_invoice_name} #{number} · #{I18n.l(issuing_date, format: :default)}
-
 """
 
 
@@ -249,10 +234,10 @@ def brand(src, name):
 
     if name == "self_billed":
         src = replace_once(src, old_header_self_billed, new_header_self_billed.replace("DUE_EXPR", due_expr), f"{name}: header")
-        src = replace_once(src, old_footer_self_billed, brand_footer, f"{name}: footer")
+        src = replace_once(src, old_footer_self_billed, "", f"{name}: footer")
     else:
         src = replace_once(src, old_header, new_header.replace("DUE_EXPR", due_expr), f"{name}: header")
-        src = replace_once(src, old_footer, payment_block + brand_footer, f"{name}: footer")
+        src = replace_once(src, old_footer, payment_block, f"{name}: footer")
     return src.replace("LOGO_B64", logo)
 
 
@@ -290,3 +275,140 @@ print(f"partials: {changed} amount cells converted in {len(names)} files under {
 out = REPO / TEMPLATES / "v4.slim"
 out.write_text(src, encoding="utf-8")
 print(f"wrote {out.relative_to(REPO)} ({len(src)} bytes) from upstream {UPSTREAM_SHA}")
+
+# 7. Page footer: documents/footer.slim is the Gotenberg `footer.html` part (Utils::PdfGenerator), rendered by
+# Chromium as page chrome at the bottom of every page, for invoices, credit notes and payment receipts. It comes
+# from upstream #6489, cherry-picked onto the fork, so it is read from that commit (footer_source), not from upstream.sha.
+# Chromium renders it in an isolated document: every style lives in its own <style> with an explicit size and
+# colour on each text node (an unstyled footer renders at zero size), and fonts and the wordmark are base64
+# (no network). Chromium injects its own stylesheet into the footer, with rules for .left, .center, .right,
+# .date, .title, .url, .pageNumber and .totalPages: never use those class names for our own layout (only the
+# page counter spans keep .pageNumber/.totalPages, which Chromium fills). Every @font-face has
+# font-display: swap, otherwise text whose font is not loaded yet stays invisible in the footer. Inter
+# prefers local() (the Gotenberg image ships it) with the data: url as fallback; the image has no
+# IBM Plex Mono, so its data: url comes first and the stack falls back to DejaVu Sans Mono.
+# Gotenberg 8 (the version production runs) does not apply `scale: 1.28` to the footer, so every value is the body design value
+# (the former in-flow .brand-footer) multiplied by 1.28. Only invoices have document_invoice_name; credit notes
+# and payment receipts fall back to upstream's content (number and page counter). The footer is always two lines
+# (nowrap, the legal name is ellipsized) so the bottom margin in Utils::PdfGenerator always fits it.
+# FOOTER_SHA is the upstream commit, the identity of the patch. The upstream object is not reachable from any fork
+# ref, so the file is read from the fork's cherry-pick of it (found by its `git cherry-pick -x` line; its sha
+# changes on rebase), then from FOOTER_SHA itself (present once upstream.sha contains #6489).
+FOOTER_SHA = "0447828b740d70a4417f9e15fae04e42f07f6f3e"
+FOOTER = "app/views/templates/documents/footer.slim"
+
+
+def footer_source():
+    picks = git("log", "--all", "--format=%H", f"--grep=cherry picked from commit {FOOTER_SHA}").decode("utf-8").split()
+    for rev in picks[:1] + [FOOTER_SHA]:
+        shown = subprocess.run(["git", "show", f"{rev}:{FOOTER}"], cwd=REPO, capture_output=True)
+        if shown.returncode == 0:
+            return rev, shown.stdout.decode("utf-8")
+    raise SystemExit(f"{FOOTER}: neither a cherry-pick of {FOOTER_SHA} nor the upstream commit is in this clone. "
+                     f"Run: git fetch https://github.com/getlago/lago-api.git {FOOTER_SHA}")
+
+
+footer_rev, footer = footer_source()
+
+old_footer_style_start = """    style
+      | @font-face {"""
+old_footer_body = """  body
+    .footer
+      span = number
+      span
+        == page_numbering
+"""
+assert footer.count(old_footer_style_start) == 1 and footer.endswith(old_footer_body), \
+    f"{FOOTER}: upstream style or body block moved"
+new_footer_vars = """- doc_name = document_invoice_name if respond_to?(:document_invoice_name)
+- doc_date = I18n.l(issuing_date, format: :default) if respond_to?(:issuing_date) && issuing_date
+- entity = billing_entity if respond_to?(:billing_entity)
+- doc_ref = [[doc_name, number].compact.join(" "), doc_date].compact.join(" · ")
+"""
+new_footer_style = f"""    style
+      | @font-face {{
+          font-family: 'Inter';
+          font-style: normal;
+          font-weight: 100 900;
+          font-display: swap;
+          src: local("Inter"), local("Inter-Regular"), url(data:font/woff2;base64,{inter}) format('woff2');
+        }}
+        @font-face {{
+          font-family: 'IBM Plex Mono';
+          font-style: normal;
+          font-weight: 400;
+          font-display: swap;
+          src: url(data:font/woff2;base64,{mono400}) format('woff2'), local("IBM Plex Mono");
+        }}
+        @font-face {{
+          font-family: 'IBM Plex Mono';
+          font-style: normal;
+          font-weight: 600;
+          font-display: swap;
+          src: url(data:font/woff2;base64,{mono600}) format('woff2'), local("IBM Plex Mono SemiBold");
+        }}
+
+        :root {{
+          --border-color: #E4E4E7;
+          --ink: #18181B;
+          --muted: #71717A;
+          --mono: 'IBM Plex Mono', 'DejaVu Sans Mono', monospace;
+        }}
+
+        body {{
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0 calc(0.42in + 10.24px);
+          color: #71717A;
+          print-color-adjust: exact;
+          -webkit-print-color-adjust: exact;
+          font-family: Inter, sans-serif;
+          font-size: 10.88px;
+          line-height: 14.08px;
+        }}
+
+        .footer {{
+          box-sizing: border-box;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12.8px;
+          width: 100%;
+          border-top: 1px solid #E4E4E7;
+          border-top-color: var(--border-color);
+          padding: 7.68px 0 15.36px;
+        }}
+
+        .brand {{ display: flex; align-items: center; gap: 12.8px; min-width: 0; }}
+        .brand img {{ display: block; height: 15.36px; flex: none; }}
+        .studio {{ min-width: 0; font-family: Inter, sans-serif; font-size: 10.88px; line-height: 14.08px; font-weight: 600; color: #18181B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+        .studio span {{ display: block; font-size: 10.88px; line-height: 14.08px; font-weight: 400; color: #71717A; overflow: hidden; text-overflow: ellipsis; }}
+        .meta {{ flex: none; font-family: var(--mono); font-size: 9.6px; line-height: 14.08px; color: #71717A; text-align: right; white-space: nowrap; }}
+        .meta b {{ font-family: var(--mono); font-size: 9.6px; line-height: 14.08px; font-weight: 600; color: #18181B; }}
+        .meta span, .pageNumber, .totalPages {{ font-family: var(--mono); font-size: 9.6px; line-height: 14.08px; color: #71717A; }}
+"""
+new_footer_body = f"""  body
+    .footer
+      .brand
+        img src="data:image/png;base64,{logo}" alt="Lerian"
+        - if entity
+          .studio
+            | #{{entity.legal_name.presence || entity.name}}
+            span = entity.email.presence || 'lerian.studio'
+      .meta
+        b Lerian Clients · Billing
+        br
+        span
+          = "#{{doc_ref}} · "
+          == page_numbering
+"""
+style_at = footer.index(old_footer_style_start)
+body_at = footer.index(old_footer_body)
+head_part = footer[:style_at]
+# the localized counter line stays exactly as upstream builds it; the document reference goes right after it
+counter = '- page_numbering = I18n.t("document.page_numbering", current: \'<span class="pageNumber"></span>\', total: \'<span class="totalPages"></span>\')\n'
+assert head_part.count(counter) == 1, f"{FOOTER}: upstream page_numbering line moved"
+head_part = head_part.replace(counter, counter + new_footer_vars)
+footer_out = head_part + new_footer_style + new_footer_body
+(REPO / FOOTER).write_text(footer_out, encoding="utf-8")
+print(f"wrote {FOOTER} ({len(footer_out)} bytes) from upstream {FOOTER_SHA} (read from {footer_rev})")

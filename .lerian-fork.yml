@@ -124,6 +124,10 @@ patches:
       - app/views/templates/invoices/v4/_subscriptions_summary.slim
       - app/views/templates/invoices/v4/_true_up_fee.slim
       - app/views/templates/invoices/v4/_volume.slim
+      - app/views/templates/documents/footer.slim
+      - app/services/utils/pdf_generator.rb
+      - spec/services/utils/pdf_generator_spec.rb
+      - spec/views/app/views/templates/documents/footer.slim_spec.rb
       - lerian/invoice-branding/
       - spec/views/app/views/templates/invoices/__snapshots__/templates_invoices_v4.slim/
       - spec/views/app/views/templates/invoices/v4/__snapshots__/
@@ -133,19 +137,24 @@ patches:
       v4 invoice template itself is patched: embedded Inter and IBM Plex Mono,
       a header card with the Lerian wordmark (the billing entity logo still
       wins), status/issuing/due-date chips, aligned money cells via
-      MoneyHelper.cell, a payment detail block and a brand footer instead of
-      the powered-by logo, in v4.slim and in the standalone one_off, charge,
-      fixed_charge and self_billed roots. MoneyHelper.cell is the one Ruby
+      MoneyHelper.cell, a payment detail block instead of the powered-by logo,
+      in v4.slim and in the standalone one_off, charge, fixed_charge and
+      self_billed roots, and a brand page footer (documents/footer.slim, the
+      Gotenberg footer.html part from the upstream #6489 cherry-pick) with the
+      wordmark, legal name, document reference and page counter on every page
+      of invoices, credit notes and payment receipts; its bottom margin in
+      Utils::PdfGenerator is 0.66in instead of upstream's 0.6. MoneyHelper.cell is the one Ruby
       addition, a presentational helper in app/views/helpers/money_helper.rb;
       no data logic changes. lerian.4 tightened the vertical spacing (header
       card, chips, block margins, billing-period gap, amount panel, table head
       cells, totals rows, footer) so
-      the two-period usage shape keeps its payment block and brand footer on
-      page 1.
+      the two-period usage shape keeps its payment block on page 1, and moved
+      the brand footer from the body to the page footer.
     regenerate: >-
       python3 lerian/invoice-branding/build_template.py. It reads the pristine
-      templates with `git show <upstream.sha>` and overwrites v4.slim and v4/
-      in place; never hand-edit the generated files. MoneyHelper.cell and its
+      templates with `git show <upstream.sha>` (the page footer from the #6489
+      commit) and overwrites v4.slim, v4/ and documents/footer.slim in place;
+      never hand-edit the generated files. MoneyHelper.cell and its
       spec are hand-maintained, not generated.
     drop_when: >-
       never while Lerian invoices need branding. On every upstream bump,

@@ -32,9 +32,11 @@ RSpec.describe Utils::PdfGenerator do
       expect(request_body).to include("INV-123 &lt;&amp;&gt;")
       expect(request_body).to include('<span class="pageNumber"></span>')
       expect(request_body).to include('<span class="totalPages"></span>')
-      expect(request_body).to include('src: local("Inter-Regular");')
+      expect(request_body).to include('src: local("Inter"), local("Inter-Regular"), url(data:font/woff2;base64,')
+      expect(request_body).to include("font-display: swap;")
       expect(request_body).to include("font-family: Inter, sans-serif;")
-      expect(request_body).to match(/name="marginBottom".*0\.6/m)
+      expect(request_body).to include("Lerian Clients")
+      expect(request_body).to match(/name="marginBottom"\s+0\.66\s/)
     end
 
     context "with a French document locale" do
