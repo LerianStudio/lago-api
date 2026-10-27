@@ -1883,4 +1883,144 @@ RSpec.describe "templates/invoices/v4.slim" do
       expect(rendered_template).to match_html_snapshot
     end
   end
+
+  context "when a recurring metric produces a usage breakdown" do
+    let(:organization) { create(:organization, :with_static_values) }
+    let(:billing_entity) { create(:billing_entity, :with_static_values, organization:) }
+    let(:customer) { create(:customer, :with_static_values, organization:, billing_entity:) }
+    let(:plan) { create(:plan, organization:, interval: "monthly", invoice_display_name: "Basic Plan") }
+    let(:subscription) { create(:subscription, customer:, plan:, status: "active") }
+    let(:billable_metric) { create(:unique_count_billable_metric, :recurring, organization:, name: "Active account") }
+    let(:charge) { create(:standard_charge, plan:, billable_metric:, pay_in_advance: false) }
+
+    let(:invoice) do
+      create(
+        :invoice,
+        organization:,
+        billing_entity:,
+        customer:,
+        number: "LAGO-202509-003",
+        payment_due_date: Date.parse("2025-09-01"),
+        issuing_date: Date.parse("2025-09-01"),
+        invoice_type: :subscription,
+        currency: "USD",
+        total_amount_cents: 600,
+        fees_amount_cents: 600,
+        sub_total_excluding_taxes_amount_cents: 600,
+        sub_total_including_taxes_amount_cents: 600
+      )
+    end
+
+    let(:charge_fee) do
+      create(
+        :charge_fee,
+        invoice:,
+        subscription:,
+        charge:,
+        charge_filter:,
+        amount_cents: 600,
+        amount_currency: "USD",
+        units: 6,
+        unit_amount_cents: 100,
+        precise_unit_amount: 1.00
+      )
+    end
+    let(:charge_filter) { nil }
+
+    let(:breakdown) do
+      [
+        breakdown_item("2025-08-01", "add", 31),
+        breakdown_item("2025-08-01", "add", 31),
+        breakdown_item("2025-08-01", "add", 31),
+        breakdown_item("2025-08-02", "add", 30),
+        breakdown_item("2025-08-02", "add", 30),
+        breakdown_item("2025-08-02", "add", 15)
+      ]
+    end
+
+    let(:breakdown_rows) do
+      Nokogiri::HTML.fragment(rendered_template).css("table.breakdown-details-table tr").map do |row|
+        row.css("td").map { |cell| cell.xpath(".//text()").map { |text| text.text.squish }.compact_blank.join(" ") }
+      end
+    end
+
+    def breakdown_item(date, action, duration, amount = 1)
+      BillableMetrics::Breakdown::Item.new(date: Date.parse(date), action:, amount:, duration:, total_duration: 31)
+    end
+
+    before do
+      create(
+        :invoice_subscription,
+        invoice:,
+        subscription:,
+        from_datetime: Time.zone.parse("2025-08-01 00:00:00"),
+        to_datetime: Time.zone.parse("2025-08-31 23:59:59"),
+        charges_from_datetime: Time.zone.parse("2025-08-01 00:00:00"),
+        charges_to_datetime: Time.zone.parse("2025-08-31 23:59:59"),
+        timestamp: Time.zone.parse("2025-08-31 23:59:59")
+      )
+      charge_fee
+      # The breakdown comes from the event store (covered by the BillableMetrics::Breakdown specs): stub it
+      allow(invoice).to receive(:recurring_breakdown).and_return(breakdown)
+    end
+
+    it "renders one row per date, action and duration with the summed amount" do
+      expect(breakdown_rows).to eq(
+        [
+          ["Aug 01, 2025 Used 31 out of 31 days", "3 × Active account"],
+          ["Aug 02, 2025 Used 30 out of 31 days", "2 × Active account"],
+          ["Aug 02, 2025 Used 15 out of 31 days", "1 × Active account"]
+        ]
+      )
+    end
+
+    it "keeps the total of the ungrouped rows" do
+      rendered_total = breakdown_rows.sum { |_date, amount| amount[/\A(\d+) × /, 1].to_i }
+
+      expect(rendered_total).to eq(breakdown.sum(&:amount))
+    end
+
+    context "with remove items" do
+      let(:breakdown) do
+        [
+          breakdown_item("2025-08-01", "add", 31, 2),
+          breakdown_item("2025-08-10", "remove", 22),
+          breakdown_item("2025-08-10", "remove", 22),
+          breakdown_item("2025-08-20", "remove", 12, -5)
+        ]
+      end
+
+      it "keeps the sign of the removed amount" do
+        expect(breakdown_rows).to eq(
+          [
+            ["Aug 01, 2025 Used 31 out of 31 days", "2 × Active account"],
+            ["Aug 10, 2025 Used 22 out of 31 days", "-2 × Active account"],
+            ["Aug 20, 2025 Used 12 out of 31 days", "-5 × Active account"]
+          ]
+        )
+      end
+    end
+
+    context "when the fee has a charge filter" do
+      let(:billable_metric_filter) do
+        create(:billable_metric_filter, billable_metric:, key: "region", values: %w[eu us])
+      end
+      let(:charge_filter) do
+        create(:charge_filter, charge:).tap do |filter|
+          create(:charge_filter_value, charge_filter: filter, billable_metric_filter:, values: ["eu"])
+        end
+      end
+
+      it "groups the rows of the filtered fee" do
+        expect(rendered_template).to include("Breakdown of eu")
+        expect(breakdown_rows).to eq(
+          [
+            ["Aug 01, 2025 Used 31 out of 31 days", "3 × Active account"],
+            ["Aug 02, 2025 Used 30 out of 31 days", "2 × Active account"],
+            ["Aug 02, 2025 Used 15 out of 31 days", "1 × Active account"]
+          ]
+        )
+      end
+    end
+  end
 end

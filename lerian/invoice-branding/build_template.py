@@ -14,7 +14,8 @@ where <sha> is `upstream.sha` in .lerian-fork.yml, so the patch is always
 rebuilt from upstream and never from an already branded copy.
 Output: app/views/templates/invoices/v4.slim and v4/*.slim, overwritten in
 place. v4.slim and the standalone roots (v4/one_off, charge, fixed_charge,
-self_billed) get the brand; the other partials only get aligned amount cells.
+self_billed) get the brand; the other partials only get aligned amount cells (and, in
+_subscription_details, recurring breakdown rows grouped by date).
 Also app/views/templates/documents/footer.slim, the page footer Gotenberg
 repeats on every page, built from the upstream #6489 file (FOOTER_SHA, read from its cherry-pick).
 Run from anywhere inside the repo: python3 lerian/invoice-branding/build_template.py
@@ -112,7 +113,7 @@ extra_css = """
       /* own bottom margin, so the payment block keeps the lerian.4 spacing whatever follows it */
       .payment-block { break-inside: avoid; margin-bottom: 8px; }
       /* tables: plain ink inside cells, body-1 muted/uppercase is for section labels only */
-      .invoice-resume-table td.body-1, .invoice-resume-table td .body-1, .total-table td.body-1, .invoice-resume-table tr.charge-name td { color: var(--ink); text-transform: none; letter-spacing: 0; font-weight: 500; }
+      .invoice-resume-table td.body-1, .invoice-resume-table td .body-1, .total-table td.body-1, .invoice-resume-table tr.charge-name td, .breakdown-details-table td.body-1, .breakdown-details-table td .body-1 { color: var(--ink); text-transform: none; letter-spacing: 0; font-weight: 500; }
       .invoice-resume-table td, .total-table td { vertical-align: middle; }
       /* 5-column fee tables: widths that fit the mono amounts without clipping (upstream caps cols at 10vw) */
       .invoice-resume-table { table-layout: fixed; width: 100%; }
@@ -241,6 +242,60 @@ def brand(src, name):
     return src.replace("LOGO_B64", logo)
 
 
+# 6b. Recurring fees breakdown (_subscription_details): upstream prints one row per breakdown item, i.e. one row
+# per distinct value for a unique_count metric (thousands of "+1" rows, hundreds of pages). Both loops (fees with
+# filters, fees without group) print one row per [date, action, duration, total_duration] group instead, with the
+# amounts summed, in the order the breakdown service sorted them. Presentation only: the breakdown, the fees and
+# their totals are unchanged, the rows of a fee sum to the same amount, and number_of_days_in_period keeps the
+# last item's total_duration for the notice below the table. Rows are never merged across fees. A row reads
+# "<count> × <item>" (U+00D7), also for a single item.
+def breakdown_loop(indent, date_expr):
+    i = " " * indent
+    return f"""{i}- recurring_breakdown(fee).each do |breakdown|
+{i}  - number_of_days_in_period = breakdown.total_duration
+{i}  tr
+{i}    td width="20%"
+{i}      .body-1 = {date_expr}
+{i}      .body-3 = I18n.t('invoice.breakdown_for_days', breakdown_duration: breakdown.duration, breakdown_total_duration: breakdown.total_duration)
+{i}    td.body-1 width="80%"
+{i}      - if breakdown.action.to_sym == :add
+{i}        | +#{{breakdown.amount}} #{{fee.item_name}}
+{i}      - elsif breakdown.action.to_sym == :remove
+{i}        | #{{breakdown.amount.negative? ? '' : '-'}}#{{breakdown.amount}} #{{fee.item_name}}
+{i}      - else
+{i}        | +/-#{{breakdown.amount}} #{{fee.item_name}}
+"""
+
+
+def grouped_breakdown_loop(indent, date_expr):
+    i = " " * indent
+    old_head = f"""{i}- recurring_breakdown(fee).each do |breakdown|
+{i}  - number_of_days_in_period = breakdown.total_duration
+"""
+    new_head = f"""{i}/ Lerian: one row per date, action and duration, amounts summed (presentation only)
+{i}- breakdowns = recurring_breakdown(fee)
+{i}- number_of_days_in_period = breakdowns.last.total_duration if breakdowns.any?
+{i}- breakdowns.group_by {{ |b| [b.date, b.action, b.duration, b.total_duration] }}.each_value do |items|
+{i}  - breakdown = items.first
+{i}  - group_amount = items.sum(&:amount)
+"""
+    # count x unit ("562 × Conta Ativa"): fee.item_name is free text from the plan, so it is never inflected;
+    # add drops upstream's plus sign, remove and add_and_removed keep upstream's sign handling
+    body = breakdown_loop(indent, date_expr)[len(old_head):].replace("breakdown.amount", "group_amount")
+    body = replace_once(body, "| +#{group_amount}", "| #{group_amount}", "breakdown row: add")
+    assert body.count("} #{fee.item_name}") == 3, "breakdown rows: expected three amount cells"
+    return new_head + body.replace("} #{fee.item_name}", "} \u00d7 #{fee.item_name}")
+
+
+def group_breakdown_rows(src):
+    src = replace_once(src, breakdown_loop(18, "I18n.l(breakdown.date, format: :default)"),
+                       grouped_breakdown_loop(18, "I18n.l(breakdown.date, format: :default)"),
+                       "_subscription_details: breakdown loop for filters")
+    return replace_once(src, breakdown_loop(18, "breakdown.date.strftime('%b %d, %Y')"),
+                        grouped_breakdown_loop(18, "breakdown.date.strftime('%b %d, %Y')"),
+                        "_subscription_details: breakdown loop without group")
+
+
 # Root templates Lago picks per invoice (Invoices::GeneratePdfService#template): v4.slim for subscription
 # and progressive billing invoices, the standalone ones for one-off, advance charge, fixed charge and
 # self-billed invoices. All of them get the brand.
@@ -269,6 +324,8 @@ for name in names:
     stem = pathlib.PurePosixPath(name).stem
     if stem in STANDALONE:
         text = brand(text, stem)
+    if stem == "_subscription_details":
+        text = group_breakdown_rows(text)
     (pdir / pathlib.PurePosixPath(name).name).write_text(text, encoding="utf-8")
 print(f"partials: {changed} amount cells converted in {len(names)} files under {pdir.relative_to(REPO)}")
 

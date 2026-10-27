@@ -15,7 +15,7 @@ Every root invoice template Lago picks (`Invoices::GeneratePdfService#template`)
 gets the brand: `v4.slim` (subscription and progressive billing invoices) and
 the standalone `v4/one_off.slim`, `v4/charge.slim` (pay-in-advance charges),
 `v4/fixed_charge.slim` and `v4/self_billed.slim`. The other `v4/` partials only
-get aligned amount cells.
+get aligned amount cells, plus grouped breakdown rows in `_subscription_details.slim`.
 
 - Inter and IBM Plex Mono are embedded as base64 `@font-face` (no network
   fetch at render time); colours move to zinc neutral tokens, with yellow
@@ -48,6 +48,18 @@ get aligned amount cells.
 - `billing_entity.invoice_footer` is rendered as a `Dados de pagamento` /
   `Payment detail` block; the `_powered_by_logo` partial is no longer rendered.
 - The brand footer is page chrome, not part of the body: see below.
+- The recurring fees breakdown of `v4/_subscription_details.slim` (recurring
+  `sum_agg` / `unique_count_agg` charges paid in arrears) prints one row per
+  date, action and duration, with the amounts summed, in both loops (fees with
+  filters and fees without group, never merging rows across fees). Upstream
+  prints one row per breakdown item, i.e. one `+1` row per distinct value of a
+  unique count metric, which turned a production invoice into 201 pages.
+  Presentation only: the breakdown, fees and totals are unchanged, and a fee's
+  rows sum to the same amount. A row reads `<count> × <item>` (`562 × Conta
+  Ativa`, `-3 × Conta Ativa` for removals, `+/-N × <item>` for items added and
+  removed), also for a single item: the item name is free text from the plan,
+  so it is never inflected. Its date and amount cells read as ink text, not as
+  the muted uppercase `.body-1` section label.
 
 ## Page footer
 
