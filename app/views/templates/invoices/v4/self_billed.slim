@@ -245,23 +245,25 @@ html
         margin-top: 2px;
       }
 
-      .brand-card { display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; }
+      .brand-card { display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border-color); border-radius: 8px; padding: 6px 16px; margin-bottom: 10px; }
       .brand-card img { height: 18px; }
       .brand-card .doc-kind { font-family: var(--mono); font-size: 9px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
-      .doc-title { margin-bottom: 8px; }
+      .doc-title { margin-bottom: 6px; }
       .body-1, .body-2 { line-height: 14px !important; }
       .body-3 { line-height: 13px !important; }
       .invoice-resume-table tr td { padding-top: 3px; padding-bottom: 3px; }
-      .mb-24 { margin-bottom: 14px; }
-      .chips { display: flex; gap: 8px; margin-bottom: 18px; }
+      .mb-24 { margin-bottom: 10px; }
+      /* gap between billing-period groups (upstream 24px); kept tight so two-period invoices fit one page */
+      .mt-24 { margin-top: 14px; }
+      .chips { display: flex; gap: 8px; margin-bottom: 10px; }
       .chip { display: inline-block; font-family: var(--mono); font-size: 8.5px; font-weight: 500; letter-spacing: 0.3px; line-height: 14px; padding: 2px 8px; border-radius: 4px; background: var(--chip); color: var(--ink); }
       .chip.dark { background: #27272A; color: #FFFFFF; }
       .chip.accent { background: var(--accent); color: var(--ink); }
       .invoice-information-table tr td:first-child { color: var(--muted); }
       .invoice-information-table tr td:last-child { font-family: var(--mono); font-size: 10px; }
-      .amount-due { display: flex; align-items: baseline; gap: 14px; padding: 8px 16px; background: var(--head); border-radius: 8px; }
+      .amount-due { display: flex; align-items: baseline; gap: 14px; padding: 6px 16px; background: var(--head); border-radius: 8px; }
       .amount-due .title-2 { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
-      .invoice-resume-table tr.first_child td, .invoice-resume-table tr:first-child td { background: var(--head); color: var(--muted); font-weight: 600; font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.6px; padding: 8px 12px; border-bottom: 1px solid var(--accent); font-family: Inter, sans-serif; white-space: normal; line-height: 12px; }
+      .invoice-resume-table tr.first_child td, .invoice-resume-table tr:first-child td { background: var(--head); color: var(--muted); font-weight: 600; font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.6px; padding: 6px 12px; border-bottom: 1px solid var(--accent); font-family: Inter, sans-serif; white-space: normal; line-height: 12px; }
       .invoice-resume-table tr td { padding-left: 12px; padding-right: 12px; }
       .invoice-resume-table td:not(:first-child) { font-family: var(--mono); font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
       .invoice-resume .total-table td:nth-child(3) { font-family: var(--mono); font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -271,7 +273,8 @@ html
       .money .cur { text-align: left; }
       .money .num { text-align: right; font-variant-numeric: tabular-nums; }
       .amount-due .money { grid-template-columns: auto auto; column-gap: 8px; }
-      .payment-block { break-inside: avoid; }
+      /* own bottom margin: it collapses with .brand-footer margin-top, so .mb-24 alone would keep the gap at 10px */
+      .payment-block { break-inside: avoid; margin-bottom: 8px; }
       /* tables: plain ink inside cells, body-1 muted/uppercase is for section labels only */
       .invoice-resume-table td.body-1, .invoice-resume-table td .body-1, .total-table td.body-1, .invoice-resume-table tr.charge-name td { color: var(--ink); text-transform: none; letter-spacing: 0; font-weight: 500; }
       .invoice-resume-table td, .total-table td { vertical-align: middle; }
@@ -296,9 +299,9 @@ html
       .invoice-resume .total-table td:nth-child(3) { padding-right: 12px; }
       .invoice-resume .total-table td:nth-child(2) { padding-left: 12px; }
       .invoice-resume .total-table tr:last-child td { color: var(--ink); }
-      .invoice-resume .total-table tr td { padding-top: 6px; padding-bottom: 6px; }
+      .invoice-resume .total-table tr td { padding-top: 5px; padding-bottom: 5px; }
       .payment-detail { white-space: pre-line; }
-            .brand-footer { border-top: 1px solid var(--border-color); padding-top: 10px; margin-top: 20px; display: flex; align-items: center; justify-content: space-between; }
+            .brand-footer { border-top: 1px solid var(--border-color); padding-top: 6px; margin-top: 8px; display: flex; align-items: center; justify-content: space-between; }
       .brand-footer .left { display: flex; align-items: center; gap: 10px; }
       .brand-footer img { height: 12px; }
       .brand-footer .studio { font-size: 8.5px; line-height: 11px; font-weight: 600; color: var(--ink); }

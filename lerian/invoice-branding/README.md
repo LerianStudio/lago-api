@@ -95,6 +95,15 @@ Not covered by that render (the partials are converted, but no invoice
 exercised them): graduated, package, percentage and volume charge models,
 taxes above zero, coupons, credit notes, pricing units and progressive billing.
 
+On 2026-10-27, 18 invoices shaped like the production ones were rendered with
+1.51.0-lerian.3. The usage invoice with two billing-period groups ended page 1
+about 43pt short of room for the payment block and brand footer, which moved
+alone to page 2. 1.51.0-lerian.4 removes 90px of vertical spacing from that
+shape (76px from single-period invoices): header card, title, chips, block
+margins (`.mb-24`, `.mt-24` between period groups, the payment block), amount
+panel, table head cells, totals rows and footer. Font sizes, line heights,
+column widths and horizontal padding are unchanged.
+
 ## Assets and licences
 
 - `fonts/inter-400-normal.woff2`: Inter, SIL Open Font License 1.1 (Google Fonts).
