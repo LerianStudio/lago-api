@@ -150,19 +150,23 @@
               .body-1.mb-24 = I18n.t('invoice.breakdown_of', fee_filter_display_name: fee.filter_display_name(separator: ' • '))
               .breakdown-details.mb-24
                 table.breakdown-details-table width="100%"
-                  - recurring_breakdown(fee).each do |breakdown|
-                    - number_of_days_in_period = breakdown.total_duration
+                  / Lerian: one row per date, action and duration, amounts summed (presentation only)
+                  - breakdowns = recurring_breakdown(fee)
+                  - number_of_days_in_period = breakdowns.last.total_duration if breakdowns.any?
+                  - breakdowns.group_by { |b| [b.date, b.action, b.duration, b.total_duration] }.each_value do |items|
+                    - breakdown = items.first
+                    - group_amount = items.sum(&:amount)
                     tr
                       td width="20%"
                         .body-1 = I18n.l(breakdown.date, format: :default)
                         .body-3 = I18n.t('invoice.breakdown_for_days', breakdown_duration: breakdown.duration, breakdown_total_duration: breakdown.total_duration)
                       td.body-1 width="80%"
                         - if breakdown.action.to_sym == :add
-                          | +#{breakdown.amount} #{fee.item_name}
+                          | #{group_amount} × #{fee.item_name}
                         - elsif breakdown.action.to_sym == :remove
-                          | #{breakdown.amount.negative? ? '' : '-'}#{breakdown.amount} #{fee.item_name}
+                          | #{group_amount.negative? ? '' : '-'}#{group_amount} × #{fee.item_name}
                         - else
-                          | +/-#{breakdown.amount} #{fee.item_name}
+                          | +/-#{group_amount} × #{fee.item_name}
 
           / Fees without group
           - else
@@ -171,19 +175,23 @@
             .breakdown-details.mb-24
               table.breakdown-details-table width="100%"
                 - fees.each do |fee|
-                  - recurring_breakdown(fee).each do |breakdown|
-                    - number_of_days_in_period = breakdown.total_duration
+                  / Lerian: one row per date, action and duration, amounts summed (presentation only)
+                  - breakdowns = recurring_breakdown(fee)
+                  - number_of_days_in_period = breakdowns.last.total_duration if breakdowns.any?
+                  - breakdowns.group_by { |b| [b.date, b.action, b.duration, b.total_duration] }.each_value do |items|
+                    - breakdown = items.first
+                    - group_amount = items.sum(&:amount)
                     tr
                       td width="20%"
                         .body-1 = breakdown.date.strftime('%b %d, %Y')
                         .body-3 = I18n.t('invoice.breakdown_for_days', breakdown_duration: breakdown.duration, breakdown_total_duration: breakdown.total_duration)
                       td.body-1 width="80%"
                         - if breakdown.action.to_sym == :add
-                          | +#{breakdown.amount} #{fee.item_name}
+                          | #{group_amount} × #{fee.item_name}
                         - elsif breakdown.action.to_sym == :remove
-                          | #{breakdown.amount.negative? ? '' : '-'}#{breakdown.amount} #{fee.item_name}
+                          | #{group_amount.negative? ? '' : '-'}#{group_amount} × #{fee.item_name}
                         - else
-                          | +/-#{breakdown.amount} #{fee.item_name}
+                          | +/-#{group_amount} × #{fee.item_name}
 
           - if fees.first.charge.prorated?
             .alert.body-3 = I18n.t('invoice.notice_prorated', days_in_month: number_of_days_in_period)

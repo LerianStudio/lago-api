@@ -149,7 +149,9 @@ patches:
       card, chips, block margins, billing-period gap, amount panel, table head
       cells, totals rows, footer) so
       the two-period usage shape keeps its payment block on page 1, and moved
-      the brand footer from the body to the page footer.
+      the brand footer from the body to the page footer. The recurring fees
+      breakdown rows in _subscription_details.slim are grouped by date, action
+      and duration with summed amounts (presentation only).
     regenerate: >-
       python3 lerian/invoice-branding/build_template.py. It reads the pristine
       templates with `git show <upstream.sha>` (the page footer from the #6489
