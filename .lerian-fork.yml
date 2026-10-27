@@ -4,8 +4,8 @@ upstream:
   sha: 71680d30cf695c86c59510dbb201a12307fe31be
 lerian:
   branch: lerian/1.51.0
-  version: 1.51.0-lerian.3
-  image: ghcr.io/lerianstudio/lago-api:1.51.0-lerian.3
+  version: 1.51.0-lerian.4
+  image: ghcr.io/lerianstudio/lago-api:1.51.0-lerian.4
 patches:
   - name: premium-unlock
     files:
@@ -124,7 +124,11 @@ patches:
       the powered-by logo, in v4.slim and in the standalone one_off, charge,
       fixed_charge and self_billed roots. MoneyHelper.cell is the one Ruby
       addition, a presentational helper in app/views/helpers/money_helper.rb;
-      no data logic changes.
+      no data logic changes. lerian.4 tightened the vertical spacing (header
+      card, chips, block margins, billing-period gap, amount panel, table head
+      cells, totals rows, footer) so
+      the two-period usage shape keeps its payment block and brand footer on
+      page 1.
     regenerate: >-
       python3 lerian/invoice-branding/build_template.py. It reads the pristine
       templates with `git show <upstream.sha>` and overwrites v4.slim and v4/
