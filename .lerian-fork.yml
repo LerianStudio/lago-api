@@ -21,6 +21,19 @@ patches:
       does not match the visible lines. Not in any upstream release as of
       2026-08-21 (v1.51.0-55-gb0f75059b).
     drop_when: upstream cuts a release containing this commit
+  - name: upstream-cherry-pick
+    commit: 0447828b740d70a4417f9e15fae04e42f07f6f3e
+    upstream_pr: 6489
+    reason: >-
+      page footer rendered by Gotenberg on every page (a separate Slim
+      template posted as the footer.html part, with a localized page counter
+      in a new document.page_numbering key). It is the mechanism the Lerian
+      brand footer needs: as an in-flow element at the end of the body it
+      landed alone on a new page whenever the content ended near the page
+      bottom, and multi-subscription invoices carried it on page 1 only. The
+      lerian-invoice-branding patch brands the footer template it adds and
+      raises its bottom margin from 0.6 to 0.66in for the two-line footer.
+    drop_when: upstream upgrade to >= v1.54.0
   - name: fix-backfill-organization-slugs-column-cache
     files:
       - db/migrate/20260416111923_backfill_organization_slugs.rb
