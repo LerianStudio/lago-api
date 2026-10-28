@@ -4,6 +4,7 @@
     - invoice_subscription = subscription_with_fees.invoice_subscription
     - filtered_fees = subscription_with_fees.filtered_fees
     - grouped_fees = subscription_with_fees.grouped_fees
+    /! lerian:sub
     == SlimHelper.render('templates/invoices/v4/_subscription_name', self, subscription: subscription, page_break: subscriptions.length > 1)
 
     / Render each billing period group
@@ -14,13 +15,20 @@
       / Billing period section
       .invoice-resume.overflow-auto class="#{'mt-24' if group_index > 0}"
         table.invoice-resume-table width="100%"
-          / Period header row
-          tr.first_child
-            td.body-2 = FeeBoundariesHelper.format_billing_period(billing_period, customer:)
-            td.body-2 = I18n.t('invoice.units')
-            td.body-2 = I18n.t('invoice.unit_price')
-            td.body-2 = I18n.t('invoice.tax_rate')
-            td.body-2 = I18n.t('invoice.amount')
+          - lerian_recurring = (fee_group.subscription_fee && FeeDisplayHelper.should_display_subscription_fee?(invoice_subscription)) || fee_group.fixed_charge_fees.any?
+          - lerian_usage = fee_group.charge_fees.any? || fee_group.commitment_fee.present?
+          / Lerian: column heads once, then the billing period as a group row
+          - if group_index == 0
+            tr.first_child
+              td.body-2 = I18n.t('lerian.invoice.charges.description')
+              td.body-2 = I18n.t('lerian.invoice.charges.qty')
+              td.body-2 = I18n.t('invoice.unit_price')
+              td.body-2 = I18n.t('invoice.tax_rate')
+              td.body-2 = I18n.t('lerian.invoice.charges.amount', currency:)
+          tr.period-row
+            td colspan="5"
+              span.period-kind = I18n.t('lerian.invoice.charges.' + (lerian_recurring && lerian_usage ? 'subscription_and_usage' : (lerian_recurring ? 'subscription' : 'usage')))
+              span.period-dates = [billing_period.from_datetime, billing_period.to_datetime].compact.map { |t| I18n.l(t.in_time_zone(customer.applicable_timezone).to_date, format: :default) }.join(' – ')
 
           / 1. Subscription fee (if present in this period)
           - if fee_group.subscription_fee && FeeDisplayHelper.should_display_subscription_fee?(invoice_subscription)
@@ -68,6 +76,7 @@
               td.body-2 == TaxHelper.applied_taxes(commitment_fee)
               td.body-2 == MoneyHelper.cell((MoneyHelper.format(commitment_fee.amount)))
 
+    /! lerian:total
     / Total section
     .invoice-resume.overflow-auto
       table.total-table width="100%"
@@ -118,7 +127,7 @@
             td.body-2
             td.body-1 = I18n.t('invoice.total')
             td.body-1
-              == MoneyHelper.cell((MoneyHelper.format(total_amount)))
+              == MoneyHelper.cell(total_amount, code: true)
         - else
           - if progressive_billing_credit_amount_cents.positive?
             - credits = progressive_billing_credits_for_subscription(invoice_subscription.subscription).all
@@ -131,72 +140,63 @@
             td.body-2
             td.body-1 = I18n.t('invoice.total')
             td.body-1
-              == MoneyHelper.cell((MoneyHelper.format(invoice_subscription.total_amount)))
+              == MoneyHelper.cell(invoice_subscription.total_amount, code: true)
 
-    / Recurring fees breakdown
+    / Lerian: the recurring fees breakdown, as the usage-by-day appendix (rows grouped by date, action and
+    / duration with the amounts summed, never one row per item; split in two columns; presentation only)
+    /! lerian:appendix
     - if grouped_fees.any? { |fg| fg.charge_fees.any? }
-      .invoice-resume.mb-24.overflow-auto
-        - recurring_fees(subscription.id).group_by(&:charge_id).each do |_charge_id, fees|
-          - next unless fees.sum(&:units) > 0
+      - recurring_fees(subscription.id).group_by(&:charge_id).each do |_charge_id, fees|
+        - next unless fees.sum(&:units) > 0
 
-          h2.invoice-details-title.title-2.mb-24 = I18n.t('invoice.details', resource: subscription.invoice_name)
-
-          - number_of_days_in_period = 30
-
-          / Fees for filters
-          - if fees.all? { |f| f.charge_filter_id? }
-            - fees.select { |f| f.units.positive? }.each do |fee|
-              .body-3 = fees.first.invoice_name
-              .body-1.mb-24 = I18n.t('invoice.breakdown_of', fee_filter_display_name: fee.filter_display_name(separator: ' • '))
-              .breakdown-details.mb-24
-                table.breakdown-details-table width="100%"
-                  / Lerian: one row per date, action and duration, amounts summed (presentation only)
-                  - breakdowns = recurring_breakdown(fee)
-                  - number_of_days_in_period = breakdowns.last.total_duration if breakdowns.any?
-                  - breakdowns.group_by { |b| [b.date, b.action, b.duration, b.total_duration] }.each_value do |items|
-                    - breakdown = items.first
-                    - group_amount = items.sum(&:amount)
+        - number_of_days_in_period = 30
+        - lerian_tables = fees.all? { |f| f.charge_filter_id? } ? fees.select { |f| f.units.positive? }.map { |f| ["#{fees.first.invoice_name} • #{f.filter_display_name(separator: ' • ')}", [f]] } : [[fees.first.invoice_name, fees]]
+        - billing_period = FeeBoundariesHelper.billing_period_for(fees.first, invoice_subscription:)
+        - lerian_period = [billing_period.from_datetime, billing_period.to_datetime].compact.map { |t| I18n.l(t.in_time_zone(customer.applicable_timezone).to_date, format: :default) }.join(' – ')
+        - lerian_tables.each do |title, table_fees|
+          - rows = []
+          - table_fees.each do |fee|
+            - breakdowns = recurring_breakdown(fee)
+            - number_of_days_in_period = breakdowns.last.total_duration if breakdowns.any?
+            - breakdowns.group_by { |b| [b.date, b.action, b.duration, b.total_duration] }.each_value do |items|
+              - rows << [items.first, items.sum(&:amount)]
+          - next if rows.empty?
+          - half = (rows.size + 1) / 2
+          - columns = [rows.first(half), rows.drop(half)].reject(&:empty?)
+          .appendix-block
+            .appendix-title = title
+            p.appendix-intro = I18n.t('lerian.invoice.appendix.intro', item: fees.first.item_name, period: lerian_period) + ' ' + I18n.t(fees.first.charge.prorated? ? 'lerian.invoice.appendix.prorated' : 'lerian.invoice.appendix.not_prorated')
+            .appendix-cols
+              - columns.each_with_index do |column, column_index|
+                table.appendix-table
+                  tr.first_child
+                    td = I18n.t('lerian.invoice.appendix.date')
+                    td = I18n.t('lerian.invoice.appendix.days_active')
+                    td = fees.first.item_name
+                  - column.each do |breakdown, group_amount|
                     tr
-                      td width="20%"
-                        .body-1 = I18n.l(breakdown.date, format: :default)
-                        .body-3 = I18n.t('invoice.breakdown_for_days', breakdown_duration: breakdown.duration, breakdown_total_duration: breakdown.total_duration)
-                      td.body-1 width="80%"
+                      td = I18n.l(breakdown.date, format: :default)
+                      td = "#{breakdown.duration} / #{breakdown.total_duration}"
+                      td
                         - if breakdown.action.to_sym == :add
-                          | #{group_amount} × #{fee.item_name}
+                          | #{group_amount}
                         - elsif breakdown.action.to_sym == :remove
-                          | #{group_amount.negative? ? '' : '-'}#{group_amount} × #{fee.item_name}
+                          | #{group_amount.negative? ? '' : '-'}#{group_amount}
                         - else
-                          | +/-#{group_amount} × #{fee.item_name}
+                          | +/-#{group_amount}
+                  - if column_index == columns.size - 1
+                    tr.total-row
+                      td = I18n.t('lerian.invoice.appendix.total')
+                      td
+                      td = RoundingHelper.round_decimal_part(table_fees.sum(&:units))
 
-          / Fees without group
-          - else
-            .body-3 = fees.first.invoice_name
-            .body-1.mb-24 = I18n.t('invoice.breakdown')
-            .breakdown-details.mb-24
-              table.breakdown-details-table width="100%"
-                - fees.each do |fee|
-                  / Lerian: one row per date, action and duration, amounts summed (presentation only)
-                  - breakdowns = recurring_breakdown(fee)
-                  - number_of_days_in_period = breakdowns.last.total_duration if breakdowns.any?
-                  - breakdowns.group_by { |b| [b.date, b.action, b.duration, b.total_duration] }.each_value do |items|
-                    - breakdown = items.first
-                    - group_amount = items.sum(&:amount)
-                    tr
-                      td width="20%"
-                        .body-1 = breakdown.date.strftime('%b %d, %Y')
-                        .body-3 = I18n.t('invoice.breakdown_for_days', breakdown_duration: breakdown.duration, breakdown_total_duration: breakdown.total_duration)
-                      td.body-1 width="80%"
-                        - if breakdown.action.to_sym == :add
-                          | #{group_amount} × #{fee.item_name}
-                        - elsif breakdown.action.to_sym == :remove
-                          | #{group_amount.negative? ? '' : '-'}#{group_amount} × #{fee.item_name}
-                        - else
-                          | +/-#{group_amount} × #{fee.item_name}
+        /! lerian:notice
+        - if fees.first.charge.prorated?
+          p.notice = I18n.t('invoice.notice_prorated', days_in_month: number_of_days_in_period)
+        - else
+          p.notice = I18n.t('invoice.notice_full')
+        /! lerian:notice-end
 
-          - if fees.first.charge.prorated?
-            .alert.body-3 = I18n.t('invoice.notice_prorated', days_in_month: number_of_days_in_period)
-          - else
-            .alert.body-3 = I18n.t('invoice.notice_full')
-
+    /! lerian:presentation
     - unless disable_presentation_breakdowns
       == SlimHelper.render('templates/invoices/v4/_presentation_breakdowns', self, fees: filtered_fees)

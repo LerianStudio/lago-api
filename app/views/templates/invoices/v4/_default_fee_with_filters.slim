@@ -7,6 +7,8 @@ tr.fee
       .body-3 = I18n.t('invoice.total_events', count: self.events_count)
     - if self.charge.prorated?
       .body-3 = I18n.t('invoice.fee_prorated')
+    - if self.charge? && !self.invoice.progressive_billing? && !self.charge.pay_in_advance? && self.billable_metric&.recurring? && %w[sum_agg unique_count_agg].include?(self.billable_metric.aggregation_type.to_s) && self.units.positive?
+      .body-3 = I18n.t('lerian.invoice.charges.daily_detail')
   td.body-2 = RoundingHelper.round_decimal_part(self.units)
   td.body-2 == MoneyHelper.cell((FeeDisplayHelper.format_precise_unit_amount(self)))
   td.body-2 == TaxHelper.applied_taxes(self)

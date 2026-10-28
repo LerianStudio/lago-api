@@ -4,12 +4,18 @@
 / Subscription fee section
 .invoice-resume.overflow-auto
   table.invoice-resume-table width="100%"
-    tr.first_child
-      td.body-2 = I18n.t('invoice.fees_from_to_date', from_date: I18n.l(invoice_subscription.charges_from_datetime_in_customer_timezone&.to_date, format: :default), to_date: I18n.l(issuing_date, format: :default))
-      td.body-2 = I18n.t('invoice.units')
-      td.body-2 = I18n.t('invoice.unit_price')
-      td.body-2 = I18n.t('invoice.tax_rate')
-      td.body-2 = I18n.t('invoice.amount')
+    / Lerian: column heads once, then the billing period as a group row
+    - if true
+      tr.first_child
+        td.body-2 = I18n.t('lerian.invoice.charges.description')
+        td.body-2 = I18n.t('lerian.invoice.charges.qty')
+        td.body-2 = I18n.t('invoice.unit_price')
+        td.body-2 = I18n.t('invoice.tax_rate')
+        td.body-2 = I18n.t('lerian.invoice.charges.amount', currency:)
+    tr.period-row
+      td colspan="5"
+        span.period-kind = I18n.t('lerian.invoice.charges.usage')
+        span.period-dates = [I18n.l(invoice_subscription.charges_from_datetime_in_customer_timezone&.to_date, format: :default), I18n.l(issuing_date, format: :default)].join(' – ')
 
 / Charge fees section for subscription invoice
 - if subscription_fees(subscription.id).charge.any?
@@ -40,6 +46,7 @@
             - fees.sort_by { |f| f.invoice_sorting_clause }.each do |fee|
               == SlimHelper.render('templates/invoices/v4/_fees_without_filters', fee)
 
+/! lerian:total
 / Total section
 .invoice-resume.overflow-auto
   table.total-table width="100%"
@@ -87,4 +94,4 @@
       td.body-2
       td.body-1 = I18n.t('invoice.total')
       td.body-1
-        == MoneyHelper.cell((MoneyHelper.format(total_amount)))
+        == MoneyHelper.cell(total_amount, code: true)

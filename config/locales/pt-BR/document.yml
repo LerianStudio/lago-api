@@ -2,3 +2,42 @@
 pt-BR:
   document:
     page_numbering: Página %{current} de %{total}
+  lerian:
+    invoice:
+      status:
+        pending: "Pagamento pendente"
+        succeeded: "Pago"
+        failed: "Pagamento falhou"
+        voided: "Cancelada"
+      sections:
+        summary: "Resumo"
+        parties: "Partes"
+        charges: "Cobranças"
+        total: "Total"
+        notes: "Observações"
+        appendix: "Uso por dia"
+        details: "Detalhes"
+        subscription_total: "Total"
+      summary:
+        amount_due: "Valor a pagar"
+        due_date: "Vencimento"
+        issued: "Emissão"
+        net_terms: "Prazo de %{days}"
+      charges:
+        description: "Descrição"
+        qty: "Qtd."
+        amount: "Valor (%{currency})"
+        subscription: "Assinatura"
+        usage: "Uso"
+        subscription_and_usage: "Assinatura e uso"
+        daily_detail: "Detalhe diário no anexo A"
+      notes:
+        payment_detail: "Dados de pagamento"
+        payment_reference: "Informe %{number} no seu pagamento."
+      appendix:
+        intro: "%{item} registrado por dia, %{period}."
+        not_prorated: "Sem pró-rata."
+        prorated: "Pró-rata pelos dias ativos."
+        date: "Data"
+        days_active: "Dias ativos"
+        total: "Total"

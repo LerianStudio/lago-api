@@ -1,7 +1,7 @@
 table.invoice-resume-table width="100%"
-  tr
-    td.body-2 = I18n.t('invoice.item')
-    td.body-2 = I18n.t('invoice.amount')
+  tr.first_child
+    td.body-2 = I18n.t('lerian.invoice.charges.description')
+    td.body-2 = I18n.t('lerian.invoice.charges.amount', currency:)
   - sorted_subscriptions.each do |subscription|
     tr
       td.body-1 = subscription.invoice_name
@@ -12,6 +12,7 @@ table.invoice-resume-table width="100%"
         td.body-1 = commitment_fee.invoice_name
         td.body-2 == MoneyHelper.cell((MoneyHelper.format(commitment_fee.amount)))
 
+/! lerian:total
 table.total-table width="100%"
   - unless credit?
     - if progressive_billing_credit_amount_cents.positive?
@@ -59,4 +60,4 @@ table.total-table width="100%"
   tr
     td.body-2
     td.body-1 = I18n.t('invoice.total')
-    td.body-1 == MoneyHelper.cell((MoneyHelper.format(total_amount)))
+    td.body-1 == MoneyHelper.cell(total_amount, code: true)

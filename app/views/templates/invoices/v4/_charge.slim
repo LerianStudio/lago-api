@@ -1,10 +1,10 @@
 table.invoice-resume-table width="100%"
-  tr
-    td.body-2 = I18n.t('invoice.item')
-    td.body-2 = I18n.t('invoice.units')
+  tr.first_child
+    td.body-2 = I18n.t('lerian.invoice.charges.description')
+    td.body-2 = I18n.t('lerian.invoice.charges.qty')
     td.body-2 = I18n.t('invoice.unit_price')
     td.body-2 = I18n.t('invoice.tax_rate')
-    td.body-2 = I18n.t('invoice.amount')
+    td.body-2 = I18n.t('lerian.invoice.charges.amount', currency:)
   - fees.order(:succeeded_at, :created_at).each do |fee|
     - if fee.fixed_charge?
       - next
@@ -67,6 +67,7 @@ table.invoice-resume-table width="100%"
 
     == SlimHelper.render('templates/invoices/v4/_conversion_row', fee)
 
+/! lerian:total
 table.total-table width="100%"
   - if coupons_amount_cents.positive?
     - credits.coupon_kind.order(created_at: :asc).each do |credit|
@@ -107,4 +108,4 @@ table.total-table width="100%"
   tr
     td.body-2
     td.body-1 = advance_charges? ? I18n.t('invoice.already_paid') : I18n.t('invoice.total')
-    td.body-1 == MoneyHelper.cell((MoneyHelper.format(total_amount)))
+    td.body-1 == MoneyHelper.cell(total_amount, code: true)

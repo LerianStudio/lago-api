@@ -10,15 +10,22 @@
 
   .invoice-resume.overflow-auto class="#{'mt-24' if group_index > 0}"
     table.invoice-resume-table width="100%"
-      tr.first_child
-        td.body-2 = FeeBoundariesHelper.format_billing_period(billing_period, customer:)
-        td.body-2 = I18n.t('invoice.units')
-        td.body-2 = I18n.t('invoice.unit_price')
-        td.body-2 = I18n.t('invoice.tax_rate')
-        td.body-2 = I18n.t('invoice.amount')
+      / Lerian: column heads once, then the billing period as a group row
+      - if group_index == 0
+        tr.first_child
+          td.body-2 = I18n.t('lerian.invoice.charges.description')
+          td.body-2 = I18n.t('lerian.invoice.charges.qty')
+          td.body-2 = I18n.t('invoice.unit_price')
+          td.body-2 = I18n.t('invoice.tax_rate')
+          td.body-2 = I18n.t('lerian.invoice.charges.amount', currency:)
+      tr.period-row
+        td colspan="5"
+          span.period-kind = I18n.t('lerian.invoice.charges.subscription')
+          span.period-dates = [billing_period.from_datetime, billing_period.to_datetime].compact.map { |t| I18n.l(t.in_time_zone(customer.applicable_timezone).to_date, format: :default) }.join(' – ')
       - fee_group.fixed_charge_fees.each do |fee|
         == SlimHelper.render('templates/invoices/v4/_fixed_charge_fee', fee)
 
+/! lerian:total
 table.total-table width="100%"
   - if coupons_amount_cents.positive?
     - credits.coupon_kind.order(created_at: :asc).each do |credit|
@@ -59,4 +66,4 @@ table.total-table width="100%"
   tr
     td.body-2
     td.body-1 = advance_charges? ? I18n.t('invoice.already_paid') : I18n.t('invoice.total')
-    td.body-1 == MoneyHelper.cell((MoneyHelper.format(total_amount)))
+    td.body-1 == MoneyHelper.cell(total_amount, code: true)

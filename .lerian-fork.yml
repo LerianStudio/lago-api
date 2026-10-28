@@ -4,8 +4,8 @@ upstream:
   sha: 71680d30cf695c86c59510dbb201a12307fe31be
 lerian:
   branch: lerian/1.51.0
-  version: 1.51.0-lerian.4
-  image: ghcr.io/lerianstudio/lago-api:1.51.0-lerian.4
+  version: 1.51.0-lerian.5
+  image: ghcr.io/lerianstudio/lago-api:1.51.0-lerian.5
 patches:
   - name: premium-unlock
     files:
@@ -110,8 +110,11 @@ patches:
       - app/views/templates/invoices/v4/_charge_percentage.slim
       - app/views/templates/invoices/v4/_conversion_row.slim
       - app/views/templates/invoices/v4/_credit.slim
+      - app/views/templates/invoices/v4/_custom_sections.slim
       - app/views/templates/invoices/v4/_default_fee.slim
       - app/views/templates/invoices/v4/_default_fee_with_filters.slim
+      - app/views/templates/invoices/v4/_fee_with_filters.slim
+      - app/views/templates/invoices/v4/_fees_without_filters.slim
       - app/views/templates/invoices/v4/_fixed_charge.slim
       - app/views/templates/invoices/v4/_graduated.slim
       - app/views/templates/invoices/v4/_graduated_percentage.slim
@@ -125,6 +128,7 @@ patches:
       - app/views/templates/invoices/v4/_true_up_fee.slim
       - app/views/templates/invoices/v4/_volume.slim
       - app/views/templates/documents/footer.slim
+      - config/locales/*/document.yml
       - app/services/utils/pdf_generator.rb
       - spec/services/utils/pdf_generator_spec.rb
       - spec/views/app/views/templates/documents/footer.slim_spec.rb
@@ -134,24 +138,32 @@ patches:
     reason: >-
       branding of the customer-facing invoice PDFs issued to Lerian Clients.
       Upstream Lago OSS has no per-organization template customisation, so the
-      v4 invoice template itself is patched: embedded Inter and IBM Plex Mono,
-      a header card with the Lerian wordmark (the billing entity logo still
-      wins), status/issuing/due-date chips, aligned money cells via
-      MoneyHelper.cell, a payment detail block instead of the powered-by logo,
-      in v4.slim and in the standalone one_off, charge, fixed_charge and
-      self_billed roots, and a brand page footer (documents/footer.slim, the
-      Gotenberg footer.html part from the upstream #6489 cherry-pick) with the
-      wordmark, legal name, document reference and page counter on every page
-      of invoices, credit notes and payment receipts; its bottom margin in
-      Utils::PdfGenerator is 0.66in instead of upstream's 0.6. MoneyHelper.cell is the one Ruby
-      addition, a presentational helper in app/views/helpers/money_helper.rb;
-      no data logic changes. lerian.4 tightened the vertical spacing (header
-      card, chips, block margins, billing-period gap, amount panel, table head
-      cells, totals rows, footer) so
-      the two-period usage shape keeps its payment block on page 1, and moved
-      the brand footer from the body to the page footer. The recurring fees
-      breakdown rows in _subscription_details.slim are grouped by date, action
-      and duration with summed amounts (presentation only).
+      v4 invoice template itself is patched. Since lerian.5 the PDF follows
+      the Sindarian UI design system (Inter 400-700 only, zinc neutrals,
+      sentence case, #FEED02 only on the header rule and the total chip,
+      Sindarian tables and status badge) with the structure of the Lerian
+      reference invoice: a numbered left rail with 01 Summary, 02 Parties,
+      03 Charges, 04 Total, 05 Notes and an A Usage by day appendix on its
+      own page, in v4.slim and in the standalone one_off, charge,
+      fixed_charge and self_billed roots. The generator composes the root
+      bodies from the upstream fragments (parties columns, fee partial
+      dispatch, notes partials, footer text) and edits the data partials for
+      presentation only: bare amounts via MoneyHelper.cell with the currency
+      in the amount column head, billing periods as group rows, HTML comment
+      markers that let the root split one partial render into rail sections,
+      and the recurring breakdown rendered as grouped two-column by-day rows
+      (one row per date, action and duration, amounts summed). The tax rate
+      column is left out when no tax applies to the invoice. Labels come
+      from lerian.invoice.* keys in every locale (en and pt-BR translated).
+      The brand page footer (documents/footer.slim, the Gotenberg
+      footer.html part from the upstream #6489 cherry-pick) is one line on
+      every page of invoices, credit notes and payment receipts: wordmark,
+      legal name and email, number and page counter; its bottom margin in
+      Utils::PdfGenerator is 0.55in instead of upstream's 0.6.
+      MoneyHelper.cell is the one Ruby addition, a presentational helper in
+      app/views/helpers/money_helper.rb; no data logic changes. Every amount
+      the lerian.5 PDF prints equals the lerian.4 one (checked per invoice on
+      eight production-shaped invoices).
     regenerate: >-
       python3 lerian/invoice-branding/build_template.py. It reads the pristine
       templates with `git show <upstream.sha>` (the page footer from the #6489
