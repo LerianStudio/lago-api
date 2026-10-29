@@ -103,6 +103,12 @@ html
       .sec-summary.sec-alert { background: #FEFCE8; }
       .sec-summary.sec-destructive { background: #FEF2F2; }
       .sum-value .chip { line-height: 18px; margin-left: -6px; }
+      /* document references (purchase order, displayable customer metadata) as a second row of label-over-value cells
+         under the three columns, 40/30/30 like them, wrapping every three */
+      .sum-refs { flex-wrap: wrap; }
+      .sum-refs .sum-ref { flex: 0 0 30%; margin-top: 10px; }
+      .sum-refs .sum-ref:nth-child(3n+1) { flex-basis: 40%; }
+      .sum-ref-value { color: var(--fg); font-weight: 500; font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
 
       /* Parties */
       .parties { display: flex; }
@@ -111,12 +117,6 @@ html
       .party .label { margin-bottom: 2px; }
       .party .party-name { color: var(--fg); font-weight: 500; font-size: 10px; line-height: 16px; }
       .party .body-2 { color: var(--muted); font-size: 9px; line-height: 13px; }
-      /* purchase order and customer metadata under the customer name, set like the address lines: label as typed
-         in Lago in 500, a space, the value; one flowing line per entry (an aligned table squeezed the values) */
-      .info-row { color: var(--muted); font-size: 9px; line-height: 13px; overflow-wrap: anywhere; }
-      .info-key { font-weight: 500; }
-      /* the value moves to the next line whole; it breaks only when wider than the column */
-      .info-key + span { display: inline-block; max-width: 100%; }
 
       /* Charges: Sindarian table. Head row with a bottom border only, no fill, 500, sentence case; body rows
          separated by hairlines, no zebra; numbers right-aligned and tabular. The currency code is printed once
@@ -249,6 +249,18 @@ html
           .sum-col
             .label = I18n.t('lerian.invoice.summary.issued')
             .sum-value = I18n.l(issuing_date, format: :default)
+        / document references: the purchase order, then the displayable metadata; a metadata value with the digits of
+        / the customer's legal number or tax id is skipped, the identity is already in Parties
+        - lerian_ids = [customer.legal_number, customer.tax_identification_number].map { |v| v.to_s.gsub(/\D/, '') }.reject(&:empty?)
+        - lerian_refs = purchase_order_number.present? ? [[I18n.t('lerian.invoice.summary.purchase_order'), purchase_order_number]] : []
+        - customer.metadata.displayable.order(created_at: :asc).each do |metadata|
+          - lerian_refs << [metadata.key, metadata.value] unless lerian_ids.include?(metadata.value.to_s.gsub(/\D/, ''))
+        - if lerian_refs.any?
+          .summary.sum-refs
+            - lerian_refs.each do |key, value|
+              .sum-col.sum-ref
+                .label = key
+                .sum-ref-value = value
 
       / Parties
       .sec
@@ -258,23 +270,11 @@ html
           .party
             .label = I18n.t('invoice.bill_to')
             .party-name = customer.display_name
-            - lerian_metadata = customer.metadata.displayable.order(created_at: :asc).to_a
-            - lerian_info_digits = lerian_metadata.map { |m| m.value.to_s.gsub(/\D/, '') }.reject(&:empty?)
-            - if purchase_order_number.present? || lerian_metadata.any?
-              .info-rows
-                - if purchase_order_number.present?
-                  .info-row
-                    span.info-key => I18n.t('lerian.invoice.summary.purchase_order')
-                    span = purchase_order_number
-                - lerian_metadata.each do |metadata|
-                  .info-row
-                    span.info-key => metadata.key
-                    span = metadata.value
-            - if customer.legal_number.present? && !lerian_info_digits.include?(customer.legal_number.gsub(/\D/, ''))
+            - if customer.legal_number.present?
               .body-2 #{customer.legal_number}
             == SlimHelper.render('templates/invoices/v4/_customer_address', self)
             .body-2 = customer.email
-            - if customer.tax_identification_number.present? && !lerian_info_digits.include?(customer.tax_identification_number.gsub(/\D/, ''))
+            - if customer.tax_identification_number.present?
               .body-2 = I18n.t('invoice.tax_identification_number', tax_identification_number: customer.tax_identification_number)
           .party
             .label = I18n.t('invoice.bill_from')

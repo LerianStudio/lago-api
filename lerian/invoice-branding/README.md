@@ -46,22 +46,21 @@ charges), `v4/fixed_charge.slim` and `v4/self_billed.slim`.
   - `Summary`: `Amount due` (24px, ISO code as a muted suffix; `Total` when
     the invoice is paid or voided; 18px from 1,000,000.00 up, and the column
     grows past its 40% rather than run under the due date), `Due date` with `Net N days` (or
-    `Already paid` for advance charges), `Issued`, nothing else, so the row
-    keeps one height. While the payment is pending (alert badge) or failed (destructive badge),
-    the whole row, rail included, sits on that status family's surface
+    `Already paid` for advance charges), `Issued`. Document references follow
+    as a second row of the same label-over-value cells (label 500 muted, value
+    12px like the dates), 40/30/30 under the three columns and wrapping every
+    three: the purchase order (`Purchase order`), then the customer's
+    displayable metadata in creation order, the label as typed in Lago. A
+    metadata value with the digits of the customer's legal number or tax id is
+    skipped (that identity is already in Parties). Without references the row
+    is not rendered. While the payment is pending (alert badge) or failed (destructive badge),
+    the whole section, references and rail included, sits on that status family's surface
     (`#FEFCE8` / `#FEF2F2`) and the due date gets the yellow chip of the
     Total; paid, voided and already-paid invoices render without them.
   - `Parties`: `Bill to` then `From`, the upstream columns carried over as
     they are (for `self_billed`, the billing entity is `Bill to` and the partner
-    is `From`). Right under the customer name, before the address (where the
-    reference invoice prints its CNPJ), the purchase order number (label
-    `Purchase order`) and the customer's displayable metadata follow, set like
-    the address lines (9px on 13px, muted): the label as typed in Lago in 500, a
-    space, the value, which moves whole to the next line when it does not fit.
-    The customer's legal number (bare line) or tax id (`Tax ID: …`) is not
-    printed again when a displayable metadata value has the same digits (the
-    labelled line already shows it); otherwise both lines stay as upstream. In
-    `self_billed` they sit under the partner, which is the customer record.
+    is `From`). Identity only: name, legal number, address, email and tax id,
+    exactly upstream's lines; the document references live in Summary.
   - `Charges`: one table, `Description | Qty | Unit price | (Tax rate) |
     Amount (<currency>)`. The currency is printed once, in the head; amounts are
     bare numbers. Billing periods are group rows (`Usage · <from> – <to>`,
