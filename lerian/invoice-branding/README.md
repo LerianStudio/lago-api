@@ -53,10 +53,12 @@ charges), `v4/fixed_charge.slim` and `v4/self_billed.slim`.
     displayable metadata in creation order, the label as typed in Lago. A
     metadata value with the digits of the customer's legal number or tax id is
     skipped (that identity is already in Parties). Without references the row
-    is not rendered. While the payment is pending (alert badge) or failed (destructive badge),
-    the whole section, references and rail included, sits on that status family's surface
-    (`#FEFCE8` / `#FEF2F2`) and the due date gets the yellow chip of the
-    Total; paid, voided and already-paid invoices render without them.
+    is not rendered. The whole section, references and rail included, sits on
+    the surface of the badge's status family: pending (alert) `#FEFCE8`, failed
+    (destructive) `#FEF2F2`, paid (success) `#F0FDF4`, voided (inactive)
+    `#F4F4F5`. Already-paid advance charges take the paid surface (unless
+    voided). The due date gets the yellow chip of the Total only while the
+    payment is pending or failed.
   - `Parties`: `Bill to` then `From`, the upstream columns carried over as
     they are (for `self_billed`, the billing entity is `Bill to` and the partner
     is `From`). Identity only: name, legal number, address, email and tax id,

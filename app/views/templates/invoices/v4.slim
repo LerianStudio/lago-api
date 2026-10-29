@@ -99,9 +99,12 @@ html
       .sum-amount .money .cur { color: var(--muted); font-weight: 400; font-size: 12px; line-height: 30px; margin-left: 4px; }
       /* a million and up (9+ digits): 18px, so the amount and its code still fit the 40% column */
       .sum-amount.sum-long .money .num { font-size: 18px; }
-      /* pending or failed payment: the whole row (rail included) on the status surface, the due date in the accent chip */
+      /* the whole Summary (rail included) on the surface of the badge's status family; the due date gets the accent
+         chip only while the payment is pending or failed */
       .sec-summary.sec-alert { background: #FEFCE8; }
       .sec-summary.sec-destructive { background: #FEF2F2; }
+      .sec-summary.sec-success { background: #F0FDF4; }
+      .sec-summary.sec-inactive { background: #F4F4F5; }
       .sum-value .chip { line-height: 18px; margin-left: -6px; }
       /* document references (purchase order, displayable customer metadata) as a second row of label-over-value cells
          under the three columns, 40/30/30 like them, wrapping every three */
@@ -217,7 +220,8 @@ html
       - lerian_status = status.to_s == 'voided' ? 'voided' : payment_status.to_s
       - lerian_badge = { 'voided' => 'inactive', 'succeeded' => 'success', 'failed' => 'destructive' }.fetch(lerian_status, 'alert')
       - lerian_already_paid = false
-      - lerian_band = lerian_badge if !lerian_already_paid && %w[alert destructive].include?(lerian_badge)
+      / an advance charge reads Already paid: it takes the paid surface whatever its payment status, unless voided
+      - lerian_band = lerian_already_paid && lerian_badge != 'inactive' ? 'success' : lerian_badge
       .doc-head
         .brand-mark
           - if billing_entity.logo.present?
@@ -231,7 +235,7 @@ html
       .head-rule
 
       / Summary
-      .sec.sec-first.sec-summary class=("sec-#{lerian_band}" if lerian_band)
+      .sec.sec-first.sec-summary class="sec-#{lerian_band}"
         .rail
           .rail-title = I18n.t('lerian.invoice.sections.summary')
         .summary
@@ -244,7 +248,7 @@ html
               .sum-value = I18n.t('invoice.already_paid')
             - else
               .sum-value
-                span class=('chip' if lerian_band) = I18n.l(payment_due_date, format: :default)
+                span class=('chip' if %w[alert destructive].include?(lerian_band)) = I18n.l(payment_due_date, format: :default)
               .sum-sub = I18n.t('lerian.invoice.summary.net_terms', days: I18n.t('invoice.payment_term_days', net_payment_term:))
           .sum-col
             .label = I18n.t('lerian.invoice.summary.issued')
