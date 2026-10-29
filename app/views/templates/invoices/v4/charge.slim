@@ -192,6 +192,13 @@ html
          rail as any section. The multi-subscription variant stays in flow and free to break, as before */
       .sec-appendix { break-before: auto; break-inside: avoid; }
       .sec-appendix.sec-inline { break-inside: auto; }
+      /* when Chromium pushes a break-inside: avoid section to the next page it also paints the top edge of that box
+         just past the end of the previous page's body area, a sliver of line under the footer rule. These sections
+         draw their hairline 2px into the box (padding, which a page break does not truncate, then the line in flow and
+         7px below it instead of 9), so that edge is blank; content and rail keep their place */
+      .sec-appendix:not(.sec-inline), .sec-total, .sec-notes { border-top: 0; padding-top: 2px; }
+      .sec-appendix:not(.sec-inline)::before, .sec-total::before, .sec-notes::before { content: ""; display: block; border-top: 1px solid var(--border); margin: 0 0 7px calc(-1 * var(--rail)); }
+      .sec-appendix:not(.sec-inline) > .rail, .sec-total > .rail, .sec-notes > .rail { top: 10px; }
       .appendix-block + .appendix-block { margin-top: 18px; }
       .appendix-title { color: var(--fg); font-weight: 500; font-size: 10px; line-height: 16px; }
       .appendix-intro { color: var(--muted); font-size: 10px; line-height: 16px; margin-bottom: 8px; }

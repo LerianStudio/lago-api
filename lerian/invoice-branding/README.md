@@ -82,7 +82,10 @@ charges), `v4/fixed_charge.slim` and `v4/self_billed.slim`.
   - `Total`: right-aligned block of the upstream totals rows, hairlines
     between them, the final total in the accent chip while the payment is
     pending or failed (plain otherwise). Moves to the next page
-    whole rather than split.
+    whole rather than split. Total, Notes and the appendix draw their hairline 2px into the
+    section instead of as a border: Chromium paints the top edge of a section
+    it pushes to the next page at the end of the previous one, which read as a
+    second line under the footer rule.
   - `Notes`: the recurring-breakdown notice (not prorated / prorated), EU tax
     statements, the usage threshold sentence, custom sections, the billing
     entity `invoice_footer` as `Payment detail` (`self_billed`: its legal
