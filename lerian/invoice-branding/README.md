@@ -70,7 +70,12 @@ charges), `v4/fixed_charge.slim` and `v4/self_billed.slim`.
   - `Parties`: `Bill to` then `From`, the upstream columns carried over as
     they are (for `self_billed`, the billing entity is `Bill to` and the partner
     is `From`). Identity only: name, legal number, address, email and tax id,
-    exactly upstream's lines; the document references live in Summary.
+    upstream's lines; the document references live in Summary. The issuer
+    address goes through the same formatter as the customer's
+    (`v4/_billing_entity_address.slim`, generated from upstream
+    `_customer_address`): country-specific line order (`São Paulo-SP` / zip for
+    Brazil, `City, ST zip` for the US) and the document's language for the
+    country name, instead of upstream's fixed `zip, city` / state lines.
   - `Charges`: one table, `Description | Qty | Unit price | (Tax rate) |
     Amount (<currency>)`. The currency is printed once, in the head; amounts are
     bare numbers. Billing periods are group rows (`Usage · <from> – <to>`,

@@ -291,19 +291,7 @@ html
                 | #{billing_entity.name}
             - if billing_entity.legal_number.present?
               .body-2 #{billing_entity.legal_number}
-            .body-2 = billing_entity.address_line1
-            .body-2 = billing_entity.address_line2
-            .body-2
-              span
-                = billing_entity.zipcode
-              - if billing_entity.zipcode.present? && billing_entity.city.present?
-                span
-                  | , &nbsp;
-              span
-                = billing_entity.city
-            - if billing_entity.state.present?
-              .body-2 = billing_entity.state
-            .body-2 = ISO3166::Country.new(billing_entity.country)&.common_name
+            == SlimHelper.render('templates/invoices/v4/_billing_entity_address', self)
             .body-2 = billing_entity.email
             - if billing_entity.tax_identification_number.present?
               .body-2 = I18n.t('invoice.tax_identification_number', tax_identification_number: billing_entity.tax_identification_number)

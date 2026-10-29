@@ -344,6 +344,38 @@ def rail(key):
 """
 
 
+# upstream prints the billing entity address as fixed lines (line 1, line 2, "zip, city", state, country) while the
+# customer goes through _customer_address (Addressing formatter, country-specific order). The issuer column uses the
+# same formatter: _billing_entity_address is _customer_address with the billing entity in place of the customer.
+ENTITY_ADDRESS = """            .body-2 = billing_entity.address_line1
+            .body-2 = billing_entity.address_line2
+            .body-2
+              span
+                = billing_entity.zipcode
+              - if billing_entity.zipcode.present? && billing_entity.city.present?
+                span
+                  | , &nbsp;
+              span
+                = billing_entity.city
+            - if billing_entity.state.present?
+              .body-2 = billing_entity.state
+            .body-2 = ISO3166::Country.new(billing_entity.country)&.common_name
+"""
+ENTITY_ADDRESS_RENDER = "            == SlimHelper.render('templates/invoices/v4/_billing_entity_address', self)\n"
+
+
+def entity_address_partial(customer_partial):
+    """_customer_address with the billing entity's fields in place of the customer's, in the document's locale (the
+    customer's, as upstream resolves it) so both columns print country names in the same language."""
+    doc_locale = "customer.document_locale || customer.billing_entity.document_locale"
+    text = replace_once(customer_partial, doc_locale, "LERIAN_DOC_LOCALE", "_customer_address: options locale")
+    text = replace_once(text, "locale: customer.document_locale \\", "locale: LERIAN_DOC_LOCALE \\", "_customer_address: address locale")
+    assert text.count("customer.") == 6, "_customer_address: customer fields moved"
+    text = text.replace("customer.", "billing_entity.").replace("LERIAN_DOC_LOCALE", "customer.document_locale || billing_entity.document_locale")
+    return ("/ Lerian invoice branding (lerian/invoice-branding, generated): the issuer address in the customer's format and\n"
+            "/ the document's locale, from upstream _customer_address with the billing entity's fields\n" + text)
+
+
 def party_column(block):
     """One upstream .billing-information-column: label to .label, the first value line to .party-name."""
     lines = [ln for ln in block.splitlines(keepends=True) if not ln.strip().startswith("/")]
@@ -378,6 +410,7 @@ def compose(src, name):
     assert len(bill_to) == 1, f"{name}: expected one bill_to column"
     ordered = bill_to + [c for c in columns if c is not bill_to[0]]
     parties_slim = "".join(party_column(c.rstrip("\n") + "\n") for c in ordered)
+    parties_slim = replace_once(parties_slim, ENTITY_ADDRESS, ENTITY_ADDRESS_RENDER, f"{name}: billing entity address")
 
     amounts = amount_re.findall(body)
     assert len(amounts) == 1, f"{name}: expected one amount block upstream, found {len(amounts)}"
@@ -806,6 +839,8 @@ for name in names:
             text = replace_once(text, CUSTOM_SECTIONS_CSS, CUSTOM_SECTIONS_NEW_CSS, "_custom_sections: css")
     (pdir / pathlib.PurePosixPath(name).name).write_text(text, encoding="utf-8")
 assert no_tax == 6, f"no-tax row name: expected in 6 partials, found in {no_tax}"
+(pdir / "_billing_entity_address.slim").write_text(
+    entity_address_partial(upstream(f"{TEMPLATES}/v4/_customer_address.slim")), encoding="utf-8")
 print(f"partials: {changed} amount cells converted in {len(names)} files under {pdir.relative_to(REPO)}")
 
 out = REPO / TEMPLATES / "v4.slim"
