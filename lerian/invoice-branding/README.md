@@ -46,16 +46,19 @@ charges), `v4/fixed_charge.slim` and `v4/self_billed.slim`.
   - `Summary`: `Amount due` (24px, ISO code as a muted suffix; `Total` when
     the invoice is paid or voided; 18px from 1,000,000.00 up, and the column
     grows past its 40% rather than run under the due date), `Due date` with `Net N days` (or
-    `Already paid` for advance charges), `Issued`. The purchase order number
-    (label `Purchase order`, sentence case) and
-    the customer's displayable metadata follow as small label/value rows.
-    While the payment is pending (alert badge) or failed (destructive badge),
+    `Already paid` for advance charges), `Issued`, nothing else, so the row
+    keeps one height. While the payment is pending (alert badge) or failed (destructive badge),
     the whole row, rail included, sits on that status family's surface
     (`#FEFCE8` / `#FEF2F2`) and the due date gets the yellow chip of the
     Total; paid, voided and already-paid invoices render without them.
   - `Parties`: `Bill to` then `From`, the upstream columns carried over as
     they are (for `self_billed`, the billing entity is `Bill to` and the partner
-    is `From`).
+    is `From`). Right under the customer name, before the address (where the
+    reference invoice prints its CNPJ), the purchase order number (label
+    `Purchase order`) and the customer's displayable metadata follow as small
+    label/value lines: the label as typed in Lago, the value next to it, moving
+    whole to the next line when it does not fit. In `self_billed` they sit under
+    the partner, which is the customer record.
   - `Charges`: one table, `Description | Qty | Unit price | (Tax rate) |
     Amount (<currency>)`. The currency is printed once, in the head; amounts are
     bare numbers. Billing periods are group rows (`Usage · <from> – <to>`,

@@ -143,9 +143,6 @@ CSS = FONT_FACES + """
       .sec-summary.sec-alert { background: #FEFCE8; }
       .sec-summary.sec-destructive { background: #FEF2F2; }
       .sum-value .chip { line-height: 18px; margin-left: -6px; }
-      .info-table { margin-top: 4px; }
-      .info-table td { padding: 1px 12px 1px 0; font-size: 9px; line-height: 14px; vertical-align: top; }
-      .info-table td:first-child { color: var(--label); font-weight: 500; white-space: nowrap; }
 
       /* Parties */
       .parties { display: flex; }
@@ -154,6 +151,12 @@ CSS = FONT_FACES + """
       .party .label { margin-bottom: 2px; }
       .party .party-name { color: var(--fg); font-weight: 500; font-size: 10px; line-height: 16px; }
       .party .body-2 { color: var(--muted); font-size: 9px; line-height: 13px; }
+      /* purchase order and customer metadata under the customer name: label as typed in Lago, value next to it,
+         one flowing line per entry (an aligned table squeezed the values to the width left by the longest label) */
+      .info-row { padding: 1px 0; font-size: 9px; line-height: 14px; overflow-wrap: anywhere; }
+      .info-key { color: var(--label); font-weight: 500; margin-right: 6px; }
+      /* the value moves to the next line whole; it breaks only when wider than the column */
+      .info-key + span { display: inline-block; max-width: 100%; }
 
       /* Charges: Sindarian table. Head row with a bottom border only, no fill, 500, sentence case; body rows
          separated by hairlines, no zebra; numbers right-aligned and tabular. The currency code is printed once
@@ -328,6 +331,21 @@ def rail(key):
 """
 
 
+CUSTOMER_NAME = "            .party-name = customer.display_name\n"
+CUSTOMER_INFO = """            - lerian_metadata = customer.metadata.displayable.order(created_at: :asc).to_a
+            - if purchase_order_number.present? || lerian_metadata.any?
+              .info-rows
+                - if purchase_order_number.present?
+                  .info-row
+                    span.info-key => I18n.t('lerian.invoice.summary.purchase_order')
+                    span = purchase_order_number
+                - lerian_metadata.each do |metadata|
+                  .info-row
+                    span.info-key => metadata.key
+                    span = metadata.value
+"""
+
+
 def party_column(block):
     """One upstream .billing-information-column: label to .label, the first value line to .party-name."""
     lines = [ln for ln in block.splitlines(keepends=True) if not ln.strip().startswith("/")]
@@ -362,6 +380,9 @@ def compose(src, name):
     assert len(bill_to) == 1, f"{name}: expected one bill_to column"
     ordered = bill_to + [c for c in columns if c is not bill_to[0]]
     parties_slim = "".join(party_column(c.rstrip("\n") + "\n") for c in ordered)
+    # the purchase order number and the customer's displayable metadata sit right under the customer name, before
+    # the address, as the reference puts its CNPJ (in Bill to; in self_billed the customer is the partner, From)
+    parties_slim = replace_once(parties_slim, CUSTOMER_NAME, CUSTOMER_NAME + CUSTOMER_INFO, f"{name}: customer name")
 
     amounts = amount_re.findall(body)
     assert len(amounts) == 1, f"{name}: expected one amount block upstream, found {len(amounts)}"
@@ -434,17 +455,6 @@ def compose(src, name):
           .sum-col
             .label = I18n.t('lerian.invoice.summary.issued')
             .sum-value = I18n.l(issuing_date, format: :default)
-        - lerian_metadata = customer.metadata.displayable.order(created_at: :asc).to_a
-        - if purchase_order_number.present? || lerian_metadata.any?
-          table.info-table
-            - if purchase_order_number.present?
-              tr
-                td = I18n.t('lerian.invoice.summary.purchase_order')
-                td = purchase_order_number
-            - lerian_metadata.each do |metadata|
-              tr
-                td = metadata.key
-                td = metadata.value
 
       / Parties
       .sec
