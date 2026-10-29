@@ -3,8 +3,8 @@
 
 Visual language: the Sindarian UI design system (console-sdk/packages/sindarian-ui, light theme): Inter only,
 zinc neutrals, sentence-case labels, yellow #FEED02 as the single accent, hairline separators, Sindarian table
-and status badge conventions. Structure: a numbered left rail per section (01 Summary, 02 Parties, 03 Charges,
-04 Total, 05 Notes, A Usage by day), as in the Lerian reference invoice.
+and status badge conventions. Structure: a left rail with the section title (Summary, Parties, Charges, Total,
+Notes, Usage by day); unlike the Lerian reference invoice, the sections are not numbered.
 
 Input: the pristine upstream templates, read with `git show <sha>:<path>` where <sha> is `upstream.sha` in
 .lerian-fork.yml, so the patch is always rebuilt from upstream and never from an already branded copy.
@@ -118,30 +118,36 @@ CSS = FONT_FACES + """
       .head-rule { position: relative; height: 1px; background: var(--border); }
       .head-rule::before { content: ""; position: absolute; left: 0; top: -1px; width: 80px; height: 3px; background: var(--accent); }
 
-      /* sections: rail (number and title) on the left, content column on the right, hairline between them */
+      /* sections: rail (title only, no number) on the left, content column on the right, hairline between them */
       .sec { position: relative; padding: 9px 0 9px var(--rail); border-top: 1px solid var(--border); }
       .sec-first { border-top: 0; padding-top: 12px; }
       .rail { position: absolute; left: 0; top: 9px; width: calc(var(--rail) - 12px); }
       .sec-first .rail { top: 12px; }
-      .rail-num { color: var(--muted); font-size: 9px; line-height: 14px; }
       .rail-title { color: var(--label); font-weight: 500; font-size: 10px; line-height: 14px; }
       .sec-page { break-before: page; border-top: 0; padding-top: 0; }
       .sec-page .rail { top: 0; }
 
-      /* 01 Summary */
+      /* Summary */
       .summary { display: flex; }
-      .sum-col { flex: 0 0 30%; min-width: 0; padding-right: 12px; }
-      .sum-col.sum-amount { flex-basis: 40%; }
+      /* the amount column grows past 40% instead of running under the due date; the other two give way */
+      .sum-col { flex: 0 1 30%; min-width: 0; padding-right: 12px; }
+      .sum-col.sum-amount { flex: 0 0 auto; min-width: 40%; }
       .sum-value { color: var(--fg); font-weight: 500; font-size: 12px; line-height: 30px; white-space: nowrap; }
       .sum-sub { color: var(--muted); font-size: 9px; line-height: 12px; }
       .sum-amount .money { white-space: nowrap; }
       .sum-amount .money .num { color: var(--fg); font-weight: 600; font-size: 24px; line-height: 30px; letter-spacing: -0.025em; }
       .sum-amount .money .cur { color: var(--muted); font-weight: 400; font-size: 12px; line-height: 30px; margin-left: 4px; }
+      /* a million and up (9+ digits): 18px, so the amount and its code still fit the 40% column */
+      .sum-amount.sum-long .money .num { font-size: 18px; }
+      /* pending or failed payment: the whole row (rail included) on the status surface, the due date in the accent chip */
+      .sec-summary.sec-alert { background: #FEFCE8; }
+      .sec-summary.sec-destructive { background: #FEF2F2; }
+      .sum-value .chip { line-height: 18px; margin-left: -6px; }
       .info-table { margin-top: 4px; }
       .info-table td { padding: 1px 12px 1px 0; font-size: 9px; line-height: 14px; vertical-align: top; }
       .info-table td:first-child { color: var(--label); font-weight: 500; white-space: nowrap; }
 
-      /* 02 Parties */
+      /* Parties */
       .parties { display: flex; }
       .party { flex: 0 0 40%; min-width: 0; padding-right: 12px; word-wrap: break-word; }
       .party + .party { flex-basis: 60%; }
@@ -149,7 +155,7 @@ CSS = FONT_FACES + """
       .party .party-name { color: var(--fg); font-weight: 500; font-size: 10px; line-height: 16px; }
       .party .body-2 { color: var(--muted); font-size: 9px; line-height: 13px; }
 
-      /* 03 Charges: Sindarian table. Head row with a bottom border only, no fill, 500, sentence case; body rows
+      /* Charges: Sindarian table. Head row with a bottom border only, no fill, 500, sentence case; body rows
          separated by hairlines, no zebra; numbers right-aligned and tabular. The currency code is printed once
          in the amount head; MoneyHelper.cell renders bare numbers. */
       .sec-charges h2.title-2 { margin-bottom: 4px; }
@@ -166,7 +172,7 @@ CSS = FONT_FACES + """
       .invoice-resume-table td:nth-child(3):nth-last-child(2) { width: 84px; }
       .invoice-resume-table td:nth-child(4):last-child { width: 96px; }
       .invoice-resume-table td:nth-child(2):last-child { width: 120px; }
-      /* no tax applied on the invoice: every fee reads 0.0%, so the tax rate column is left out (04 Total keeps the tax row) */
+      /* no tax applied on the invoice: every fee reads 0.0%, so the tax rate column is left out (the Total section keeps the tax row) */
       .no-tax .invoice-resume-table td:nth-child(4):nth-last-child(2) { display: none; }
       .invoice-resume-table tr.first_child td, .invoice-resume-table tr:first-child td { color: var(--label); font-weight: 500; font-size: 9px; line-height: 14px; padding-top: 0; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
       .invoice-resume-table tr.period-row td { padding: 7px 0 0; text-align: left; white-space: normal; }
@@ -190,7 +196,7 @@ CSS = FONT_FACES + """
       .money { white-space: nowrap; }
       .money .cur { margin-left: 4px; color: var(--muted); }
 
-      /* 04 Total: right-aligned block, hairlines between rows, the final total in the accent chip */
+      /* Total: right-aligned block, hairlines between rows, the final total in the accent chip */
       .invoice-resume .total-table, .total-table { width: 290px; margin-left: auto; }
       .total-table td { padding: 4px 0; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
       .total-table td:first-child:empty { display: none; }
@@ -198,10 +204,13 @@ CSS = FONT_FACES + """
       .total-table td.body-2:not(:last-child) { color: var(--label); }
       .total-table tr:last-child td { border-bottom: 0; padding-top: 7px; color: var(--fg); font-weight: 600; font-size: 12px; line-height: 18px; }
       .total-table tr:last-child .money .cur { font-size: 10px; }
-      .sec-total .total-table tr:last-child .money { display: inline-block; background: var(--accent); color: var(--on-accent); border-radius: 4px; padding: 1px 6px; }
+      .sec-total .total-table tr:last-child .money, .chip { display: inline-block; background: var(--accent); color: var(--on-accent); border-radius: 4px; padding: 1px 6px; }
       .sec-total .total-table tr:last-child .money .cur { color: var(--on-accent); }
 
-      /* 05 Notes */
+      /* Notes */
+      /* Total and Notes move to the next page whole: a break inside them left `Payment detail` alone at the
+         bottom of a page, its content on the next (Charges, the long one, still breaks between rows) */
+      .sec-total, .sec-notes { break-inside: avoid; }
       .notes > * + * { margin-top: 6px; }
       .notes p, .notes .body-3, .notes .notice { color: var(--muted); font-size: 10px; line-height: 16px; margin-bottom: 0; }
       .notes .label { margin-bottom: 2px; }
@@ -286,7 +295,7 @@ DUE = "I18n.t('invoice.due_date', date: I18n.l(payment_due_date, format: :defaul
 DUE_EXPRS = {DUE: "false", f"advance_charges? ? I18n.t('invoice.already_paid') : {DUE}": "advance_charges?"}
 TOTAL_EXPRS = {"MoneyHelper.format(total_amount)",
                "total_amount.format(format: I18n.t('money.format'), decimal_mark: I18n.t('money.decimal_mark'), thousands_separator: I18n.t('money.thousands_separator'))"}
-# blocks between the fee dispatch and the footer text, moved into 05 Notes (or after it)
+# blocks between the fee dispatch and the footer text, moved into the Notes section (or after it)
 EU_TAX = "      == SlimHelper.render('templates/invoices/v4/_eu_tax_management', self)\n"
 THRESHOLD = """      - applied_usage_threshold = progressive_billing_last_applied_usage_threshold
       - if applied_usage_threshold
@@ -313,10 +322,9 @@ LOGO_IMG = {
 }
 
 
-def rail(num, key):
-    num_line = f"          .rail-num {num}\n" if num else ""
+def rail(key):
     return f"""        .rail
-{num_line}          .rail-title = I18n.t('lerian.invoice.sections.{key}')
+          .rail-title = I18n.t('lerian.invoice.sections.{key}')
 """
 
 
@@ -400,6 +408,7 @@ def compose(src, name):
     out += f"""      - lerian_status = status.to_s == 'voided' ? 'voided' : payment_status.to_s
       - lerian_badge = {{ 'voided' => 'inactive', 'succeeded' => 'success', 'failed' => 'destructive' }}.fetch(lerian_status, 'alert')
       - lerian_already_paid = {already_paid}
+      - lerian_band = lerian_badge if !lerian_already_paid && %w[alert destructive].include?(lerian_badge)
       .doc-head
         .brand-mark
 {LOGO_IMG[kind]}        .doc-id
@@ -408,10 +417,10 @@ def compose(src, name):
           span.badge class="badge-#{{lerian_badge}}" = I18n.t("lerian.invoice.status.#{{lerian_status}}", default: lerian_status.humanize)
       .head-rule
 
-      / 01 Summary
-      .sec.sec-first
-{rail("01", "summary")}        .summary
-          .sum-col.sum-amount
+      / Summary
+      .sec.sec-first.sec-summary class=("sec-#{{lerian_band}}" if lerian_band)
+{rail("summary")}        .summary
+          .sum-col.sum-amount class=('sum-long' if MoneyHelper.format(total_amount).to_s.count('0-9') > 8)
             .label = I18n.t(lerian_already_paid || %w[voided succeeded].include?(lerian_status) ? 'invoice.total' : 'lerian.invoice.summary.amount_due')
             == MoneyHelper.cell(total_amount, code: true)
           .sum-col
@@ -419,7 +428,8 @@ def compose(src, name):
             - if lerian_already_paid
               .sum-value = I18n.t('invoice.already_paid')
             - else
-              .sum-value = I18n.l(payment_due_date, format: :default)
+              .sum-value
+                span class=('chip' if lerian_band) = I18n.l(payment_due_date, format: :default)
               .sum-sub = I18n.t('lerian.invoice.summary.net_terms', days: I18n.t('invoice.payment_term_days', net_payment_term:))
           .sum-col
             .label = I18n.t('lerian.invoice.summary.issued')
@@ -429,18 +439,18 @@ def compose(src, name):
           table.info-table
             - if purchase_order_number.present?
               tr
-                td = I18n.t('invoice.purchase_order_number')
+                td = I18n.t('lerian.invoice.summary.purchase_order')
                 td = purchase_order_number
             - lerian_metadata.each do |metadata|
               tr
                 td = metadata.key
                 td = metadata.value
 
-      / 02 Parties
+      / Parties
       .sec
-{rail("02", "parties")}        .parties
+{rail("parties")}        .parties
 {parties_slim}
-      / 03 Charges and 04 Total: the fee partials render once into a String, split at their section markers
+      / Charges and Total: the fee partials render once into a String, split at their section markers
       - lerian_html = +''
 {capture}      - lerian_html = lerian_html.gsub('{SUB}', '')
       - lerian_charges, _, lerian_rest = lerian_html.partition('{TOTAL}')
@@ -450,14 +460,14 @@ def compose(src, name):
       - lerian_appendix = lerian_appendix.gsub(/{NOTICE}.*?{NOTICE_END}/m, '')
       - lerian_no_tax = applied_taxes.blank?
       .sec.sec-charges class=('no-tax' if lerian_no_tax)
-{rail("03", "charges")}        == lerian_charges
+{rail("charges")}        == lerian_charges
       .sec.sec-total
-{rail("04", "total")}        == lerian_total
+{rail("total")}        == lerian_total
 
-      / 05 Notes
+      / Notes
       - lerian_footer_text = {footer_expr}
       .sec.sec-notes
-{rail("05", "notes")}        .notes
+{rail("notes")}        .notes
           - lerian_notices.each do |notice|
             == notice
 {notes_extra}          - if lerian_footer_text.present?
@@ -465,10 +475,10 @@ def compose(src, name):
 {payment_label}              p.payment-detail = LineBreakHelper.break_lines(lerian_footer_text)
           p == I18n.t('lerian.invoice.notes.payment_reference', number: "<span class=\\"ref\\">#{{ERB::Util.html_escape(number)}}</span>")
 
-      / A Usage by day (own page), then the upstream presentation breakdowns (own page)
+      / Usage by day (own page), then the upstream presentation breakdowns (own page)
       - if lerian_appendix.include?('appendix-table')
         .sec.sec-appendix
-{indent(rail("A", "appendix"), 2)}          == lerian_appendix
+{indent(rail("appendix"), 2)}          == lerian_appendix
       == lerian_presentation
 {after_notes}"""
     if multi:
@@ -480,12 +490,12 @@ def compose(src, name):
           - sub_total, _, sub_rest = sub_rest.partition('{APPENDIX}')
           - sub_appendix, _, sub_presentation = sub_rest.partition('{PRESENTATION}')
           .sec.sec-page.sec-charges class=('no-tax' if lerian_no_tax)
-{indent(rail("", "details"), 4)}            == sub_charges
+{indent(rail("details"), 4)}            == sub_charges
           .sec
-{indent(rail("", "subscription_total"), 4)}            == sub_total
+{indent(rail("subscription_total"), 4)}            == sub_total
           - if sub_appendix.include?('appendix-table')
             .sec.sec-appendix.sec-inline
-{indent(rail("A", "appendix"), 6)}              == sub_appendix
+{indent(rail("appendix"), 6)}              == sub_appendix
           == sub_presentation
 """
     return out.replace("LOGO_B64", logo)
@@ -494,7 +504,7 @@ def compose(src, name):
 # 3. Partials: presentational edits only.
 # 3a. td cells whose whole content is an amount become MoneyHelper.cell (bare number, see money_helper.rb)
 cell_re = re.compile(r"^(\s*)(td\.body-\d\s+)?=\s*(?:'-'\s*\+\s*)?((?:MoneyHelper\.format|FeeDisplayHelper\.format_(?:amount|precise_unit_amount|as_currency|with_precision))\(.*\))\s*$")
-# the final total row passes the Money itself, so the cell keeps its ISO code (the accent chip in 04 Total)
+# the final total row passes the Money itself, so the cell keeps its ISO code (the accent chip in the Total section)
 TOTAL_CELL = {"== MoneyHelper.cell((MoneyHelper.format(total_amount)))": "== MoneyHelper.cell(total_amount, code: true)",
               "== MoneyHelper.cell((MoneyHelper.format(invoice_subscription.total_amount)))": "== MoneyHelper.cell(invoice_subscription.total_amount, code: true)"}
 
@@ -563,7 +573,7 @@ def upstream_period_head(ind, first_cell):
             f"{i}  td.body-2 = I18n.t('invoice.amount')\n")
 
 
-# 3d. "Daily detail in appendix A" under a usage fee whose recurring breakdown goes to the appendix (the
+# 3d. "Daily detail in Usage by day" under a usage fee whose recurring breakdown goes to the appendix (the
 # conditions of Invoice#recurring_fees, on a subscription invoice that renders _subscription_details)
 def daily_hint(ind, fee):
     i = " " * ind
@@ -604,7 +614,7 @@ def mark_total(text, name):
 # summed, in the order the breakdown service sorted them, never merging rows across fees, split in two columns,
 # with the fee units as the total. The column of counts is titled with the fee's item name (free text from the
 # plan). Presentation only: the breakdown, the fees and their totals are unchanged. The not-prorated/prorated
-# notice is emitted between notice markers; the root moves it to 05 Notes.
+# notice is emitted between notice markers; the root moves it to the Notes section.
 UPSTREAM_BREAKDOWN_START = "    / Recurring fees breakdown\n"
 UPSTREAM_BREAKDOWN_END = "    - unless disable_presentation_breakdowns\n"
 UPSTREAM_BREAKDOWN_FRAGMENTS = [
@@ -737,6 +747,9 @@ CUSTOM_SECTIONS_NEW_CSS = """css:
 # progressive billing invoices, the standalone ones for one-off, advance charge, fixed charge and self-billed
 # invoices. All of them get the composition.
 STANDALONE = {"one_off", "charge", "fixed_charge", "self_billed"}
+# the no-tax row of the totals names the tax 'Tax' in every locale upstream ("Tax (0%)" on a pt-BR invoice); the
+# upstream invoice.tax key carries the translation ("Imposto")
+NO_TAX_NAME = ("name: 'Tax', rate: 0", "name: I18n.t('invoice.tax'), rate: 0")
 src = compose(upstream(f"{TEMPLATES}/v4.slim"), "v4")
 
 pdir = REPO / TEMPLATES / "v4"
@@ -744,10 +757,14 @@ pdir.mkdir(parents=True, exist_ok=True)
 names = sorted(p for p in git("ls-tree", "--name-only", UPSTREAM_SHA, f"{TEMPLATES}/v4/").decode("utf-8").splitlines()
                if p.endswith(".slim"))
 changed = 0
+no_tax = 0
 for name in names:
     stem = pathlib.PurePosixPath(name).stem
     text, n = convert_cells(upstream(name))
     changed += n
+    if NO_TAX_NAME[0] in text:
+        text = replace_once(text, *NO_TAX_NAME, f"{stem}: no-tax row name")
+        no_tax += 1
     if stem in STANDALONE:
         text = compose(text, stem)
     else:
@@ -766,6 +783,7 @@ for name in names:
         if stem == "_custom_sections":
             text = replace_once(text, CUSTOM_SECTIONS_CSS, CUSTOM_SECTIONS_NEW_CSS, "_custom_sections: css")
     (pdir / pathlib.PurePosixPath(name).name).write_text(text, encoding="utf-8")
+assert no_tax == 6, f"no-tax row name: expected in 6 partials, found in {no_tax}"
 print(f"partials: {changed} amount cells converted in {len(names)} files under {pdir.relative_to(REPO)}")
 
 out = REPO / TEMPLATES / "v4.slim"
@@ -783,8 +801,8 @@ print(f"wrote {out.relative_to(REPO)} ({len(src)} bytes) from upstream {UPSTREAM
 # font-display: swap, otherwise text whose font is not loaded yet stays invisible in the footer. Inter
 # prefers local() (the Gotenberg image ships the family) with the data: url as fallback.
 # Gotenberg 8 (the version production runs) does not apply `scale: 1.28` to the footer, so every value is the body
-# design value multiplied by 1.28. The footer is one line (nowrap, the legal name is ellipsized), so its height is
-# fixed and the bottom margin in Utils::PdfGenerator always fits it. Credit notes and payment receipts have the
+# design value multiplied by 1.28. The footer has a fixed height (the legal name and the email stacked next to the
+# wordmark, nowrap, ellipsized), so the bottom margin in Utils::PdfGenerator always fits it. Credit notes and payment receipts have the
 # same methods it reads (number, billing_entity).
 # FOOTER_SHA is the upstream commit, the identity of the patch. The upstream object is not reachable from any fork
 # ref, so the file is read from the fork's cherry-pick of it (found by its `git cherry-pick -x` line; its sha
@@ -853,13 +871,16 @@ new_footer_style = f"""    style
           gap: 15.36px;
           width: 100%;
           border-top: 1px solid #E4E4E7;
-          padding: 10.24px 0 15.36px;
+          padding: 10.24px 0 12.8px;
           font-variant-numeric: tabular-nums;
         }}
 
         .brand {{ display: flex; align-items: center; gap: 10.24px; min-width: 0; }}
         .brand img {{ display: block; height: 15.36px; flex: none; }}
-        .entity {{ min-width: 0; font-family: Inter, sans-serif; font-size: 11.52px; line-height: 15.36px; font-weight: 400; color: #6E6E77; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+        /* legal name above the email: a two-line block centred on the wordmark reads as aligned, where a single
+           line next to it never looked centred */
+        .entity {{ min-width: 0; }}
+        .entity div {{ font-family: Inter, sans-serif; font-size: 11.52px; line-height: 14.08px; font-weight: 400; color: #6E6E77; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
         .meta {{ flex: none; font-family: Inter, sans-serif; font-size: 11.52px; line-height: 15.36px; font-weight: 400; color: #6E6E77; text-align: right; white-space: nowrap; }}
         .meta b {{ font-family: Inter, sans-serif; font-size: 11.52px; line-height: 15.36px; font-weight: 500; color: #3F3F46; }}
         .pageNumber, .totalPages {{ font-family: Inter, sans-serif; font-size: 11.52px; line-height: 15.36px; color: #6E6E77; }}
@@ -869,7 +890,9 @@ new_footer_body = f"""  body
       .brand
         img src="data:image/png;base64,{logo}" alt="Lerian"
         - if entity
-          .entity = [entity.legal_name.presence || entity.name, entity.email.presence || 'lerian.studio'].join(" · ")
+          .entity
+            div = entity.legal_name.presence || entity.name
+            div = entity.email.presence || 'lerian.studio'
       .meta
         b = number
         = " · "

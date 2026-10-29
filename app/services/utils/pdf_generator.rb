@@ -47,7 +47,7 @@ module Utils
         file3: prepare_http_files(render_footer, "text/html", "footer.html"),
         scale: "1.28",
         marginTop: "0.42",
-        marginBottom: "0.55",
+        marginBottom: "0.66",
         marginLeft: "0.42",
         marginRight: "0.42"
       )

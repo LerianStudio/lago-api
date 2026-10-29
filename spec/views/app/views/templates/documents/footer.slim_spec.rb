@@ -20,7 +20,7 @@ RSpec.describe "templates/documents/footer.slim" do
       expect(rendered_template).to include('alt="Lerian"')
       expect(rendered_template).to include('<div class="brand">')
       expect(rendered_template).not_to match(/class="(left|center|right|date|title|url)"/)
-      expect(rendered_template).to include("Lerian Studio Ltda · billing@lerian.studio")
+      expect(rendered_template).to include('<div class="entity"><div>Lerian Studio Ltda</div><div>billing@lerian.studio</div></div>')
       expect(rendered_template).to include(
         '<b>LER-2026-001</b> · Página <span class="pageNumber"></span> de <span class="totalPages"></span>'
       )
@@ -30,7 +30,7 @@ RSpec.describe "templates/documents/footer.slim" do
       let(:billing_entity) { create(:billing_entity, organization:, name: "Lerian", legal_name: nil, email: nil) }
 
       it "falls back to its name and the default email" do
-        expect(rendered_template).to include("Lerian · lerian.studio")
+        expect(rendered_template).to include('<div class="entity"><div>Lerian</div><div>lerian.studio</div></div>')
       end
     end
   end

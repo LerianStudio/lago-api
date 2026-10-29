@@ -23,7 +23,7 @@ invoice. When the two disagree the design system wins:
 - Zinc neutrals: `#3F3F46` text, `#52525B` labels and table heads, `#6E6E77`
   muted, `#E4E4E7` borders.
 - Yellow `#FEED02` in two places only: an 80×3px segment at the left end of the
-  header rule, and the final total in 04 Total (a chip with `#09090B` text,
+  header rule, and the final total in Total (a chip with `#09090B` text,
   4px radius).
 - Sindarian tables (head row with a bottom border only, no fill, 500 weight;
   hairline body rows, no zebra; numbers right-aligned) and the Sindarian status
@@ -41,31 +41,40 @@ charges), `v4/fixed_charge.slim` and `v4/self_billed.slim`.
   entity has one; `self_billed` never shows it, as upstream), then
   `document_invoice_name`, the number and the status badge. Below it, a 1px rule
   with the yellow segment.
-- **Left rail**: every section has a number and a title in a 98px CSS (≈94pt)
-  column, with the content from ≈136pt. Sections are separated by a hairline.
-  - `01 Summary`: `Amount due` (24px, ISO code as a muted suffix; `Total` when
-    the invoice is paid or voided), `Due date` with `Net N days` (or
-    `Already paid` for advance charges), `Issued`. The purchase order number and
+- **Left rail**: every section has its title, without a number, in a 98px CSS
+  (≈94pt) column, with the content from ≈136pt. Sections are separated by a hairline.
+  - `Summary`: `Amount due` (24px, ISO code as a muted suffix; `Total` when
+    the invoice is paid or voided; 18px from 1,000,000.00 up, and the column
+    grows past its 40% rather than run under the due date), `Due date` with `Net N days` (or
+    `Already paid` for advance charges), `Issued`. The purchase order number
+    (label `Purchase order`, sentence case) and
     the customer's displayable metadata follow as small label/value rows.
-  - `02 Parties`: `Bill to` then `From`, the upstream columns carried over as
+    While the payment is pending (alert badge) or failed (destructive badge),
+    the whole row, rail included, sits on that status family's surface
+    (`#FEFCE8` / `#FEF2F2`) and the due date gets the yellow chip of the
+    Total; paid, voided and already-paid invoices render without them.
+  - `Parties`: `Bill to` then `From`, the upstream columns carried over as
     they are (for `self_billed`, the billing entity is `Bill to` and the partner
     is `From`).
-  - `03 Charges`: one table, `Description | Qty | Unit price | (Tax rate) |
+  - `Charges`: one table, `Description | Qty | Unit price | (Tax rate) |
     Amount (<currency>)`. The currency is printed once, in the head; amounts are
     bare numbers. Billing periods are group rows (`Usage · <from> – <to>`,
     `Subscription · …`, `Subscription and usage · …`). Every upstream row kind
     keeps rendering, restyled. The tax rate column is left out when no tax
-    applies to the invoice (every fee would read `0.0%`; 04 Total keeps the tax
-    row).
-  - `04 Total`: right-aligned block of the upstream totals rows, hairlines
-    between them, the final total in the accent chip.
-  - `05 Notes`: the recurring-breakdown notice (not prorated / prorated), EU tax
+    applies to the invoice (every fee would read `0.0%`; Total keeps the tax
+    row, named with the upstream `invoice.tax` key: `Imposto (0%)` in pt-BR,
+    where upstream hardcodes `Tax`). The only section that breaks across pages.
+  - `Total`: right-aligned block of the upstream totals rows, hairlines
+    between them, the final total in the accent chip. Moves to the next page
+    whole rather than split.
+  - `Notes`: the recurring-breakdown notice (not prorated / prorated), EU tax
     statements, the usage threshold sentence, custom sections, the billing
     entity `invoice_footer` as `Payment detail` (`self_billed`: its legal
     self-billing statement), and `Please reference <number> on your payment.`
-  - `A Usage by day`, on its own page: see below.
+    Moves to the next page whole, so `Payment detail` never ends a page alone.
+  - `Usage by day`, on its own page: see below.
 - **Multi-subscription invoices**: page 1 has the subscriptions summary in
-  03/04; then one page per subscription (rail `Details`), with its charges, its
+  Charges and Total; then one page per subscription (rail `Details`), with its charges, its
   total and, if any, its usage-by-day table in flow.
 - Labels come from `lerian.invoice.*` keys in `config/locales/<locale>/document.yml`
   (en and pt-BR translated; the other locales carry the English copy so nothing
@@ -93,7 +102,7 @@ code stays as a suffix (amount due, total chip). The number is exactly what
 `td` cells whose whole content is a `MoneyHelper.format` / `FeeDisplayHelper.format_*`
 call are rewritten to it.
 
-### Usage by day (appendix A)
+### Usage by day (appendix)
 
 The recurring fees breakdown of `v4/_subscription_details.slim` (recurring
 `sum_agg` / `unique_count_agg` charges paid in arrears) becomes an appendix on
@@ -104,7 +113,7 @@ amounts summed, never merging rows across fees. The rows are split in two halves
 side by side, with columns `Date | Days active | <item>`. The item is the fee's
 `item_name`, free text from the plan, never inflected. A `Total` row prints the
 fee units. A usage fee that has such an appendix shows `Daily detail in
-appendix A` under its name in 03 Charges. Presentation only: the breakdown,
+Usage by day` under its name in Charges. Presentation only: the breakdown,
 fees and totals are unchanged. Charge filter presentation breakdowns keep
 their own page, as upstream.
 
@@ -116,10 +125,12 @@ taken from upstream PR #6489 (commit `0447828b7`, first released in v1.54.0,
 cherry-picked onto this fork, see `.lerian-fork.yml`). Chromium renders it in
 the bottom margin of every page of invoices, credit notes and payment receipts.
 
-One line: on the left the wordmark and `<legal name> · <email>` (the email falls
-back to `lerian.studio`); on the right `<number> · <localized document.page_numbering>`
+On the left the wordmark and, next to it, the legal name above the email (the
+email falls back to `lerian.studio`), a two-line block centred on the wordmark; on the right `<number> · <localized document.page_numbering>`
 (`Page n of N`, `Página n de N`). Credit notes and payment receipts have
-`number` and `billing_entity` too, so they render the same footer.
+`number` and `billing_entity` too, so they render the same footer. A single
+`<legal name> · <email>` line next to the wordmark never read as centred on it
+(the wordmark's ink sits on the image's bottom edge), hence the stacked block.
 
 Chromium constraints the footer follows:
 
@@ -140,12 +151,13 @@ Chromium constraints the footer follows:
   body design value multiplied by 1.28 (9px text → 11.52px). Gotenberg 7.8.2
   (the compose default) does scale it, so a render there is not
   representative: validate the footer on Gotenberg 8.15, the version
-  production runs. It is one line (`nowrap`, a long legal name is ellipsized),
-  so its height is fixed: 1px rule + 10.24px top + 15.36px line + 15.36px
-  bottom = 42 CSS px (0.44in). Chromium draws the footer inside the bottom page
-  margin, anchored at the page edge, so `marginBottom` in `Utils::PdfGenerator`
-  is 0.55in (52.8px): the footer plus about 11px between the last body line and
-  the rule. lerian.4 used 0.66in for its two-line footer; upstream uses 0.6in.
+  production runs. Every line is `nowrap` (a long legal name is ellipsized),
+  so its height is fixed: 1px rule + 10.24px top + 2 × 14.08px lines + 12.8px
+  bottom = 52.2 CSS px (0.54in). Chromium draws the footer inside the bottom
+  page margin, anchored at the page edge, so `marginBottom` in
+  `Utils::PdfGenerator` is 0.66in (63.36px): the footer plus about 11px between
+  the last body line and the rule (as lerian.4, whose footer was two lines too;
+  upstream uses 0.6in).
 
 The body uses Gotenberg's `scale: 1.28` and the 0.42in side and top margins as
 before; 12px of body padding puts the content edge at 42pt, as in the reference.
@@ -205,7 +217,7 @@ pt-BR single-subscription invoice. The same invoices were rendered with the
 lerian.4 templates as the baseline. For every invoice, the money values that
 `pdftotext -layout` extracts from the PDF are the same multiset as in the
 lerian.4 PDF. `pdffonts` lists Inter only, and the page counter appears once on
-every page. The two-period usage invoice keeps sections 01–05 on page 1
+every page. The two-period usage invoice keeps every section up to Notes on page 1
 (3 pages → 2).
 
 Not covered by those renders (no local data): graduated, package, percentage

@@ -23,6 +23,7 @@ fr:
         amount_due: "Amount due"
         due_date: "Due date"
         issued: "Issued"
+        purchase_order: "Purchase order"
         net_terms: "Net %{days}"
       charges:
         description: "Description"
@@ -31,7 +32,7 @@ fr:
         subscription: "Subscription"
         usage: "Usage"
         subscription_and_usage: "Subscription and usage"
-        daily_detail: "Daily detail in appendix A"
+        daily_detail: "Daily detail in Usage by day"
       notes:
         payment_detail: "Payment detail"
         payment_reference: "Please reference %{number} on your payment."

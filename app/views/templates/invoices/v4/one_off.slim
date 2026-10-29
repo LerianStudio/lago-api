@@ -78,30 +78,36 @@ html
       .head-rule { position: relative; height: 1px; background: var(--border); }
       .head-rule::before { content: ""; position: absolute; left: 0; top: -1px; width: 80px; height: 3px; background: var(--accent); }
 
-      /* sections: rail (number and title) on the left, content column on the right, hairline between them */
+      /* sections: rail (title only, no number) on the left, content column on the right, hairline between them */
       .sec { position: relative; padding: 9px 0 9px var(--rail); border-top: 1px solid var(--border); }
       .sec-first { border-top: 0; padding-top: 12px; }
       .rail { position: absolute; left: 0; top: 9px; width: calc(var(--rail) - 12px); }
       .sec-first .rail { top: 12px; }
-      .rail-num { color: var(--muted); font-size: 9px; line-height: 14px; }
       .rail-title { color: var(--label); font-weight: 500; font-size: 10px; line-height: 14px; }
       .sec-page { break-before: page; border-top: 0; padding-top: 0; }
       .sec-page .rail { top: 0; }
 
-      /* 01 Summary */
+      /* Summary */
       .summary { display: flex; }
-      .sum-col { flex: 0 0 30%; min-width: 0; padding-right: 12px; }
-      .sum-col.sum-amount { flex-basis: 40%; }
+      /* the amount column grows past 40% instead of running under the due date; the other two give way */
+      .sum-col { flex: 0 1 30%; min-width: 0; padding-right: 12px; }
+      .sum-col.sum-amount { flex: 0 0 auto; min-width: 40%; }
       .sum-value { color: var(--fg); font-weight: 500; font-size: 12px; line-height: 30px; white-space: nowrap; }
       .sum-sub { color: var(--muted); font-size: 9px; line-height: 12px; }
       .sum-amount .money { white-space: nowrap; }
       .sum-amount .money .num { color: var(--fg); font-weight: 600; font-size: 24px; line-height: 30px; letter-spacing: -0.025em; }
       .sum-amount .money .cur { color: var(--muted); font-weight: 400; font-size: 12px; line-height: 30px; margin-left: 4px; }
+      /* a million and up (9+ digits): 18px, so the amount and its code still fit the 40% column */
+      .sum-amount.sum-long .money .num { font-size: 18px; }
+      /* pending or failed payment: the whole row (rail included) on the status surface, the due date in the accent chip */
+      .sec-summary.sec-alert { background: #FEFCE8; }
+      .sec-summary.sec-destructive { background: #FEF2F2; }
+      .sum-value .chip { line-height: 18px; margin-left: -6px; }
       .info-table { margin-top: 4px; }
       .info-table td { padding: 1px 12px 1px 0; font-size: 9px; line-height: 14px; vertical-align: top; }
       .info-table td:first-child { color: var(--label); font-weight: 500; white-space: nowrap; }
 
-      /* 02 Parties */
+      /* Parties */
       .parties { display: flex; }
       .party { flex: 0 0 40%; min-width: 0; padding-right: 12px; word-wrap: break-word; }
       .party + .party { flex-basis: 60%; }
@@ -109,7 +115,7 @@ html
       .party .party-name { color: var(--fg); font-weight: 500; font-size: 10px; line-height: 16px; }
       .party .body-2 { color: var(--muted); font-size: 9px; line-height: 13px; }
 
-      /* 03 Charges: Sindarian table. Head row with a bottom border only, no fill, 500, sentence case; body rows
+      /* Charges: Sindarian table. Head row with a bottom border only, no fill, 500, sentence case; body rows
          separated by hairlines, no zebra; numbers right-aligned and tabular. The currency code is printed once
          in the amount head; MoneyHelper.cell renders bare numbers. */
       .sec-charges h2.title-2 { margin-bottom: 4px; }
@@ -126,7 +132,7 @@ html
       .invoice-resume-table td:nth-child(3):nth-last-child(2) { width: 84px; }
       .invoice-resume-table td:nth-child(4):last-child { width: 96px; }
       .invoice-resume-table td:nth-child(2):last-child { width: 120px; }
-      /* no tax applied on the invoice: every fee reads 0.0%, so the tax rate column is left out (04 Total keeps the tax row) */
+      /* no tax applied on the invoice: every fee reads 0.0%, so the tax rate column is left out (the Total section keeps the tax row) */
       .no-tax .invoice-resume-table td:nth-child(4):nth-last-child(2) { display: none; }
       .invoice-resume-table tr.first_child td, .invoice-resume-table tr:first-child td { color: var(--label); font-weight: 500; font-size: 9px; line-height: 14px; padding-top: 0; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
       .invoice-resume-table tr.period-row td { padding: 7px 0 0; text-align: left; white-space: normal; }
@@ -150,7 +156,7 @@ html
       .money { white-space: nowrap; }
       .money .cur { margin-left: 4px; color: var(--muted); }
 
-      /* 04 Total: right-aligned block, hairlines between rows, the final total in the accent chip */
+      /* Total: right-aligned block, hairlines between rows, the final total in the accent chip */
       .invoice-resume .total-table, .total-table { width: 290px; margin-left: auto; }
       .total-table td { padding: 4px 0; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
       .total-table td:first-child:empty { display: none; }
@@ -158,10 +164,13 @@ html
       .total-table td.body-2:not(:last-child) { color: var(--label); }
       .total-table tr:last-child td { border-bottom: 0; padding-top: 7px; color: var(--fg); font-weight: 600; font-size: 12px; line-height: 18px; }
       .total-table tr:last-child .money .cur { font-size: 10px; }
-      .sec-total .total-table tr:last-child .money { display: inline-block; background: var(--accent); color: var(--on-accent); border-radius: 4px; padding: 1px 6px; }
+      .sec-total .total-table tr:last-child .money, .chip { display: inline-block; background: var(--accent); color: var(--on-accent); border-radius: 4px; padding: 1px 6px; }
       .sec-total .total-table tr:last-child .money .cur { color: var(--on-accent); }
 
-      /* 05 Notes */
+      /* Notes */
+      /* Total and Notes move to the next page whole: a break inside them left `Payment detail` alone at the
+         bottom of a page, its content on the next (Charges, the long one, still breaks between rows) */
+      .sec-total, .sec-notes { break-inside: avoid; }
       .notes > * + * { margin-top: 6px; }
       .notes p, .notes .body-3, .notes .notice { color: var(--muted); font-size: 10px; line-height: 16px; margin-bottom: 0; }
       .notes .label { margin-bottom: 2px; }
@@ -205,6 +214,7 @@ html
       - lerian_status = status.to_s == 'voided' ? 'voided' : payment_status.to_s
       - lerian_badge = { 'voided' => 'inactive', 'succeeded' => 'success', 'failed' => 'destructive' }.fetch(lerian_status, 'alert')
       - lerian_already_paid = false
+      - lerian_band = lerian_badge if !lerian_already_paid && %w[alert destructive].include?(lerian_badge)
       .doc-head
         .brand-mark
           - if billing_entity.logo.present?
@@ -217,13 +227,12 @@ html
           span.badge class="badge-#{lerian_badge}" = I18n.t("lerian.invoice.status.#{lerian_status}", default: lerian_status.humanize)
       .head-rule
 
-      / 01 Summary
-      .sec.sec-first
+      / Summary
+      .sec.sec-first.sec-summary class=("sec-#{lerian_band}" if lerian_band)
         .rail
-          .rail-num 01
           .rail-title = I18n.t('lerian.invoice.sections.summary')
         .summary
-          .sum-col.sum-amount
+          .sum-col.sum-amount class=('sum-long' if MoneyHelper.format(total_amount).to_s.count('0-9') > 8)
             .label = I18n.t(lerian_already_paid || %w[voided succeeded].include?(lerian_status) ? 'invoice.total' : 'lerian.invoice.summary.amount_due')
             == MoneyHelper.cell(total_amount, code: true)
           .sum-col
@@ -231,7 +240,8 @@ html
             - if lerian_already_paid
               .sum-value = I18n.t('invoice.already_paid')
             - else
-              .sum-value = I18n.l(payment_due_date, format: :default)
+              .sum-value
+                span class=('chip' if lerian_band) = I18n.l(payment_due_date, format: :default)
               .sum-sub = I18n.t('lerian.invoice.summary.net_terms', days: I18n.t('invoice.payment_term_days', net_payment_term:))
           .sum-col
             .label = I18n.t('lerian.invoice.summary.issued')
@@ -241,17 +251,16 @@ html
           table.info-table
             - if purchase_order_number.present?
               tr
-                td = I18n.t('invoice.purchase_order_number')
+                td = I18n.t('lerian.invoice.summary.purchase_order')
                 td = purchase_order_number
             - lerian_metadata.each do |metadata|
               tr
                 td = metadata.key
                 td = metadata.value
 
-      / 02 Parties
+      / Parties
       .sec
         .rail
-          .rail-num 02
           .rail-title = I18n.t('lerian.invoice.sections.parties')
         .parties
           .party
@@ -289,7 +298,7 @@ html
             - if billing_entity.tax_identification_number.present?
               .body-2 = I18n.t('invoice.tax_identification_number', tax_identification_number: billing_entity.tax_identification_number)
 
-      / 03 Charges and 04 Total: the fee partials render once into a String, split at their section markers
+      / Charges and Total: the fee partials render once into a String, split at their section markers
       - lerian_html = +''
       - lerian_html << SlimHelper.render('templates/invoices/v4/_one_off', self)
       - lerian_html = lerian_html.gsub('<!--lerian:sub-->', '')
@@ -301,20 +310,17 @@ html
       - lerian_no_tax = applied_taxes.blank?
       .sec.sec-charges class=('no-tax' if lerian_no_tax)
         .rail
-          .rail-num 03
           .rail-title = I18n.t('lerian.invoice.sections.charges')
         == lerian_charges
       .sec.sec-total
         .rail
-          .rail-num 04
           .rail-title = I18n.t('lerian.invoice.sections.total')
         == lerian_total
 
-      / 05 Notes
+      / Notes
       - lerian_footer_text = billing_entity.invoice_footer
       .sec.sec-notes
         .rail
-          .rail-num 05
           .rail-title = I18n.t('lerian.invoice.sections.notes')
         .notes
           - lerian_notices.each do |notice|
@@ -328,11 +334,10 @@ html
               p.payment-detail = LineBreakHelper.break_lines(lerian_footer_text)
           p == I18n.t('lerian.invoice.notes.payment_reference', number: "<span class=\"ref\">#{ERB::Util.html_escape(number)}</span>")
 
-      / A Usage by day (own page), then the upstream presentation breakdowns (own page)
+      / Usage by day (own page), then the upstream presentation breakdowns (own page)
       - if lerian_appendix.include?('appendix-table')
         .sec.sec-appendix
           .rail
-            .rail-num A
             .rail-title = I18n.t('lerian.invoice.sections.appendix')
           == lerian_appendix
       == lerian_presentation

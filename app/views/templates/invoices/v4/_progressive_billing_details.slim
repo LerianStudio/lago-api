@@ -78,7 +78,7 @@
     - else
       tr
         td.body-2
-        td.body-2 = I18n.t('invoice.tax_name_with_details', name: 'Tax', rate: 0)
+        td.body-2 = I18n.t('invoice.tax_name_with_details', name: I18n.t('invoice.tax'), rate: 0)
         td.body-2 == MoneyHelper.cell((MoneyHelper.format(0.to_money(currency))))
     tr
       td.body-2

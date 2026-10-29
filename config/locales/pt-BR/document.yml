@@ -22,6 +22,7 @@ pt-BR:
         amount_due: "Valor a pagar"
         due_date: "Vencimento"
         issued: "Emissão"
+        purchase_order: "Pedido de compra"
         net_terms: "Prazo de %{days}"
       charges:
         description: "Descrição"
@@ -30,7 +31,7 @@ pt-BR:
         subscription: "Assinatura"
         usage: "Uso"
         subscription_and_usage: "Assinatura e uso"
-        daily_detail: "Detalhe diário no anexo A"
+        daily_detail: "Detalhe diário em Uso por dia"
       notes:
         payment_detail: "Dados de pagamento"
         payment_reference: "Informe %{number} no seu pagamento."
