@@ -28,7 +28,9 @@ invoice. When the two disagree the design system wins:
 - Sindarian tables (head row with a bottom border only, no fill, 500 weight;
   hairline body rows, no zebra; numbers right-aligned) and the Sindarian status
   badge: pending → alert, paid → success, failed → destructive, voided →
-  inactive.
+  inactive. All four use the status-family pattern (light surface, dark text,
+  50% border); failed takes the error family (`#FEF2F2`, `#991B1B`, border
+  `rgba(239, 68, 68, 0.5)`) instead of the solid `#DC2626` DS variant.
 
 ## What the PDF looks like
 

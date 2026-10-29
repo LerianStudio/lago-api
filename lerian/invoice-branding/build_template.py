@@ -113,7 +113,8 @@ CSS = FONT_FACES + """
       .badge { display: inline-flex; align-items: center; border: 1px solid transparent; border-radius: 9999px; padding: 1px 8px; font-weight: 500; font-size: 9px; line-height: 14px; white-space: nowrap; }
       .badge-alert { background: #FEFCE8; color: #854D0E; border-color: rgba(234, 179, 8, 0.5); }
       .badge-success { background: #F0FDF4; color: #166534; border-color: rgba(22, 163, 74, 0.5); }
-      .badge-destructive { background: #DC2626; color: #FFFFFF; border-color: #DC2626; }
+      /* error family, like the other three (light surface, dark text, 50% border), not the solid DS variant */
+      .badge-destructive { background: #FEF2F2; color: #991B1B; border-color: rgba(239, 68, 68, 0.5); }
       .badge-inactive { background: #E4E4E7; color: #3F3F46; border-color: rgba(82, 82, 91, 0.4); }
       .head-rule { position: relative; height: 1px; background: var(--border); }
       .head-rule::before { content: ""; position: absolute; left: 0; top: -1px; width: 80px; height: 3px; background: var(--accent); }
