@@ -211,8 +211,10 @@ CSS = FONT_FACES + """
       .total-table td.body-2:not(:last-child) { color: var(--label); }
       .total-table tr:last-child td { border-bottom: 0; padding-top: 7px; color: var(--fg); font-weight: 600; font-size: 12px; line-height: 18px; }
       .total-table tr:last-child .money .cur { font-size: 10px; }
-      .sec-total .total-table tr:last-child .money, .chip { display: inline-block; background: var(--accent); color: var(--on-accent); border-radius: 4px; padding: 1px 6px; }
-      .sec-total .total-table tr:last-child .money .cur { color: var(--on-accent); }
+      /* the accent chip means "action pending": the final total and the due date get it only while the payment is
+         pending or failed (sec-due); otherwise the final row keeps its weight and size, without background */
+      .sec-total.sec-due .total-table tr:last-child .money, .chip { display: inline-block; background: var(--accent); color: var(--on-accent); border-radius: 4px; padding: 1px 6px; }
+      .sec-total.sec-due .total-table tr:last-child .money .cur { color: var(--on-accent); }
 
       /* Notes */
       /* Total and Notes move to the next page whole: a break inside them left `Payment detail` alone at the
@@ -417,6 +419,7 @@ def compose(src, name):
       - lerian_already_paid = {already_paid}
       / an advance charge reads Already paid: it takes the paid surface whatever its payment status, unless voided
       - lerian_band = lerian_already_paid && lerian_badge != 'inactive' ? 'success' : lerian_badge
+      - lerian_due = %w[alert destructive].include?(lerian_band)
       .doc-head
         .brand-mark
 {LOGO_IMG[kind]}        .doc-id
@@ -437,7 +440,7 @@ def compose(src, name):
               .sum-value = I18n.t('invoice.already_paid')
             - else
               .sum-value
-                span class=('chip' if %w[alert destructive].include?(lerian_band)) = I18n.l(payment_due_date, format: :default)
+                span class=('chip' if lerian_due) = I18n.l(payment_due_date, format: :default)
               .sum-sub = I18n.t('lerian.invoice.summary.net_terms', days: I18n.t('invoice.payment_term_days', net_payment_term:))
           .sum-col
             .label = I18n.t('lerian.invoice.summary.issued')
@@ -473,7 +476,7 @@ def compose(src, name):
       - lerian_no_tax = applied_taxes.blank?
       .sec.sec-charges class=('no-tax' if lerian_no_tax)
 {rail("charges")}        == lerian_charges
-      .sec.sec-total
+      .sec.sec-total class=('sec-due' if lerian_due)
 {rail("total")}        == lerian_total
 
       / Notes

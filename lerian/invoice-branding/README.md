@@ -22,9 +22,12 @@ invoice. When the two disagree the design system wins:
 - Sentence-case labels, no uppercase eyebrows or letter-spaced caps.
 - Zinc neutrals: `#3F3F46` text, `#52525B` labels and table heads, `#6E6E77`
   muted, `#E4E4E7` borders.
-- Yellow `#FEED02` in two places only: an 80×3px segment at the left end of the
-  header rule, and the final total in Total (a chip with `#09090B` text,
-  4px radius).
+- Yellow `#FEED02` means "action pending": the 80×3px segment at the left end
+  of the header rule is always there; the chip (`#09090B` text, 4px radius) on
+  the final total in Total and on the due date in Summary appears only while the
+  payment is pending or failed (alert or destructive badge). Paid, voided and
+  already-paid invoices print the final total without a chip, same 600 weight
+  and size; the per-subscription totals never have one.
 - Sindarian tables (head row with a bottom border only, no fill, 500 weight;
   hairline body rows, no zebra; numbers right-aligned) and the Sindarian status
   badge: pending → alert, paid → success, failed → destructive, voided →
@@ -62,8 +65,8 @@ charges), `v4/fixed_charge.slim` and `v4/self_billed.slim`.
     the surface of the badge's status family: pending (alert) `#FEFCE8`, failed
     (destructive) `#FEF2F2`, paid (success) `#F0FDF4`, voided (inactive)
     `#F4F4F5`. Already-paid advance charges take the paid surface (unless
-    voided). The due date gets the yellow chip of the Total only while the
-    payment is pending or failed.
+    voided). The due date gets the yellow chip, together with the final total,
+    only while the payment is pending or failed.
   - `Parties`: `Bill to` then `From`, the upstream columns carried over as
     they are (for `self_billed`, the billing entity is `Bill to` and the partner
     is `From`). Identity only: name, legal number, address, email and tax id,
@@ -77,7 +80,8 @@ charges), `v4/fixed_charge.slim` and `v4/self_billed.slim`.
     row, named with the upstream `invoice.tax` key: `Imposto (0%)` in pt-BR,
     where upstream hardcodes `Tax`). The only section that breaks across pages.
   - `Total`: right-aligned block of the upstream totals rows, hairlines
-    between them, the final total in the accent chip. Moves to the next page
+    between them, the final total in the accent chip while the payment is
+    pending or failed (plain otherwise). Moves to the next page
     whole rather than split.
   - `Notes`: the recurring-breakdown notice (not prorated / prorated), EU tax
     statements, the usage threshold sentence, custom sections, the billing
