@@ -77,7 +77,7 @@ charges), `v4/fixed_charge.slim` and `v4/self_billed.slim`.
     entity `invoice_footer` as `Payment detail` (`self_billed`: its legal
     self-billing statement), and `Please reference <number> on your payment.`
     Moves to the next page whole, so `Payment detail` never ends a page alone.
-  - `Usage by day`, on its own page: see below.
+  - `Usage by day`, after Notes: see below.
 - **Multi-subscription invoices**: page 1 has the subscriptions summary in
   Charges and Total; then one page per subscription (rail `Details`), with its charges, its
   total and, if any, its usage-by-day table in flow.
@@ -110,8 +110,10 @@ call are rewritten to it.
 ### Usage by day (appendix)
 
 The recurring fees breakdown of `v4/_subscription_details.slim` (recurring
-`sum_agg` / `unique_count_agg` charges paid in arrears) becomes an appendix on
-its own page. Upstream prints one row per breakdown item, i.e. one `+1` row per
+`sum_agg` / `unique_count_agg` charges paid in arrears) becomes an appendix
+section after Notes: it starts on the same page when it fits and moves whole to
+the next page otherwise (on a multi-subscription invoice it stays in flow on each
+subscription page). Upstream prints one row per breakdown item, i.e. one `+1` row per
 distinct value of a unique count metric, which turned a production invoice into
 201 pages. The appendix prints one row per date, action and duration, with the
 amounts summed, never merging rows across fees. The rows are split in two halves

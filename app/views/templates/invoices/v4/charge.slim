@@ -182,10 +182,10 @@ html
       .invoice-custom-sections { margin-bottom: 0; }
 
       /* A Usage by day: the grouped recurring breakdown rows, in two columns */
-      .sec-appendix { break-before: page; border-top: 0; padding-top: 0; }
-      .sec-appendix .rail { top: 0; }
-      .sec-appendix.sec-inline { break-before: auto; border-top: 1px solid var(--border); padding-top: 9px; }
-      .sec-appendix.sec-inline .rail { top: 9px; }
+      /* Usage by day: right after Notes when it fits on the page, otherwise whole on the next one; hairline, spacing and
+         rail as any section. The multi-subscription variant stays in flow and free to break, as before */
+      .sec-appendix { break-before: auto; break-inside: avoid; }
+      .sec-appendix.sec-inline { break-inside: auto; }
       .appendix-block + .appendix-block { margin-top: 18px; }
       .appendix-title { color: var(--fg); font-weight: 500; font-size: 10px; line-height: 16px; }
       .appendix-intro { color: var(--muted); font-size: 10px; line-height: 16px; margin-bottom: 8px; }
