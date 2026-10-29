@@ -156,9 +156,10 @@ patches:
       column is left out when no tax applies to the invoice. Labels come
       from lerian.invoice.* keys in every locale (en and pt-BR translated).
       The brand page footer (documents/footer.slim, the Gotenberg
-      footer.html part from the upstream #6489 cherry-pick) is one line on
-      every page of invoices, credit notes and payment receipts: wordmark,
-      legal name and email, number and page counter; its bottom margin in
+      footer.html part from the upstream #6489 cherry-pick) is on every page
+      of invoices, credit notes and payment receipts: on the left the
+      wordmark next to a two-line block, legal name over email; on the right
+      the number and the page counter. Its bottom margin in
       Utils::PdfGenerator is 0.66in instead of upstream 0.6.
       MoneyHelper.cell is the one Ruby addition, a presentational helper in
       app/views/helpers/money_helper.rb; no data logic changes. Every amount
