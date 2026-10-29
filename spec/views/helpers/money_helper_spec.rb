@@ -95,6 +95,27 @@ RSpec.describe MoneyHelper do
     it "renders an empty number for nil" do
       expect(helper.cell(nil)).to eq(cell_html(""))
     end
+
+    it "keeps space thousands separators in the number" do
+      expect(helper.cell("1 234,56 BRL")).to eq(cell_html("1 234,56"))
+    end
+
+    it "keeps the ISO code once after a number with space thousands separators" do
+      expect(helper.cell("1 234,56 BRL", code: true)).to eq(cell_html("1 234,56", "BRL"))
+    end
+
+    it "renders the sign once before a number with space thousands separators" do
+      expect(helper.cell("-1 234,56 BRL")).to eq(cell_html("-1 234,56"))
+    end
+
+    it "keeps NBSP and narrow NBSP thousands separators in the number" do
+      expect(helper.cell("1\u00A0234\u202F567,89\u00A0BRL")).to eq(cell_html("1\u00A0234\u202F567,89"))
+    end
+
+    it "renders a Money formatted in a locale with space thousands separators" do
+      html = I18n.with_locale(:fr) { helper.cell(Money.new(123_456, "BRL"), code: true) }
+      expect(html).to eq(cell_html("1 234,56", "BRL"))
+    end
   end
 
   describe ".format_with_precision" do

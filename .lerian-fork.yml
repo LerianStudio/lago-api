@@ -142,9 +142,9 @@ patches:
       the Sindarian UI design system (Inter 400-700 only, zinc neutrals,
       sentence case, #FEED02 only on the header rule and the total chip,
       Sindarian tables and status badge) with the structure of the Lerian
-      reference invoice: a numbered left rail with 01 Summary, 02 Parties,
-      03 Charges, 04 Total, 05 Notes and an A Usage by day appendix on its
-      own page, in v4.slim and in the standalone one_off, charge,
+      reference invoice: a left rail (titles only, not numbered) with
+      Summary, Parties, Charges, Total, Notes and a Usage by day appendix on
+      its own page, in v4.slim and in the standalone one_off, charge,
       fixed_charge and self_billed roots. The generator composes the root
       bodies from the upstream fragments (parties columns, fee partial
       dispatch, notes partials, footer text) and edits the data partials for
@@ -159,7 +159,7 @@ patches:
       footer.html part from the upstream #6489 cherry-pick) is one line on
       every page of invoices, credit notes and payment receipts: wordmark,
       legal name and email, number and page counter; its bottom margin in
-      Utils::PdfGenerator is 0.55in instead of upstream's 0.6.
+      Utils::PdfGenerator is 0.66in instead of upstream 0.6.
       MoneyHelper.cell is the one Ruby addition, a presentational helper in
       app/views/helpers/money_helper.rb; no data logic changes. Every amount
       the lerian.5 PDF prints equals the lerian.4 one (checked per invoice on
