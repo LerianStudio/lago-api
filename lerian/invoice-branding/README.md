@@ -51,8 +51,11 @@ charges), `v4/fixed_charge.slim` and `v4/self_billed.slim`.
     12px like the dates), 40/30/30 under the three columns and wrapping every
     three: the purchase order (`Purchase order`), then the customer's
     displayable metadata in creation order, the label as typed in Lago. A
-    metadata value with the digits of the customer's legal number or tax id is
-    skipped (that identity is already in Parties). Without references the row
+    metadata value equal to the customer's legal number or tax id is skipped
+    (that identity is already in Parties). Both are compared downcased and
+    without formatting characters (whitespace, `.`, `/`, `-`); letters are kept,
+    so `38.220.040/0001-11` equals `38220040000111` but `PO-123456789` does not
+    equal `US123456789`. Without references the row
     is not rendered. The whole section, references and rail included, sits on
     the surface of the badge's status family: pending (alert) `#FEFCE8`, failed
     (destructive) `#FEF2F2`, paid (success) `#F0FDF4`, voided (inactive)

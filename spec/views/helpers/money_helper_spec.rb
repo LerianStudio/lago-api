@@ -112,6 +112,14 @@ RSpec.describe MoneyHelper do
       expect(helper.cell("1\u00A0234\u202F567,89\u00A0BRL")).to eq(cell_html("1\u00A0234\u202F567,89"))
     end
 
+    it "keeps several space thousands separators in the number" do
+      expect(helper.cell("1 234 567,89 BRL")).to eq(cell_html("1 234 567,89"))
+    end
+
+    it "keeps a pricing unit that starts with a digit as the unit" do
+      expect(helper.cell("12.50 1ZZ")).to eq(cell_html("12.50", "1ZZ"))
+    end
+
     it "renders a Money formatted in a locale with space thousands separators" do
       html = I18n.with_locale(:fr) { helper.cell(Money.new(123_456, "BRL"), code: true) }
       expect(html).to eq(cell_html("1 234,56", "BRL"))

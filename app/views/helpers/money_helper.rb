@@ -19,11 +19,12 @@ class MoneyHelper
   # currency stays as a suffix too, as the ISO code for a Money (the amount due and the total).
   # A minus in the amount ("-1.00 BRL", "-BRL 1.00", "BRL -1.00", "R$-1.00") is rendered once, in front of the
   # number, also when the sign argument is already "-". The number is the one format produces, unchanged.
-  # A space, NBSP or narrow NBSP is a thousands separator ("1 234,56" in fr, nb, sv) only when a digit follows, so
-  # the gap before a suffix currency stays outside the number; the gaps match [[:space:]], NBSP included.
+  # A space, NBSP or narrow NBSP is a thousands separator ("1 234,56" in fr, nb, sv) only when exactly three digits
+  # follow and no letter or digit comes after them, so the gap before a suffix currency or a pricing unit that starts
+  # with a digit ("12.50 1ZZ") stays outside the number; the gaps match [[:space:]], NBSP included.
   def self.cell(money, sign = "", code: false)
     text = money.is_a?(String) ? money : format(money).to_s
-    match = text.match(/\A[[:space:]]*(-?)[[:space:]]*(\D*?)[[:space:]]*(-?)[[:space:]]*(\d(?:[\d.,]|[ \u00A0\u202F](?=\d))*)[[:space:]]*(\D*?)[[:space:]]*\z/)
+    match = text.match(/\A[[:space:]]*(-?)[[:space:]]*(\D*?)[[:space:]]*(-?)[[:space:]]*(\d(?:[\d.,]|[ \u00A0\u202F](?=\d{3}(?![\p{L}\d])))*)[[:space:]]*(.*?)[[:space:]]*\z/)
     currency = match ? (match[2].presence || match[5]) : ""
     number = match ? match[4] : text
     negative = match && (match[1] == "-" || match[3] == "-")

@@ -253,12 +253,15 @@ html
           .sum-col
             .label = I18n.t('lerian.invoice.summary.issued')
             .sum-value = I18n.l(issuing_date, format: :default)
-        / document references: the purchase order, then the displayable metadata; a metadata value with the digits of
-        / the customer's legal number or tax id is skipped, the identity is already in Parties
-        - lerian_ids = [customer.legal_number, customer.tax_identification_number].map { |v| v.to_s.gsub(/\D/, '') }.reject(&:empty?)
+        / document references: the purchase order, then the displayable metadata; a metadata value equal to the
+        / customer's legal number or tax id is skipped, the identity is already in Parties. Both sides are compared
+        / downcased without formatting characters (whitespace . / -); letters stay, so 38.220.040/0001-11 equals
+        / 38220040000111 but PO-123456789 does not equal US123456789
+        - lerian_norm = ->(v) { v.to_s.downcase.gsub(/[\s.\/-]/, '') }
+        - lerian_ids = [customer.legal_number, customer.tax_identification_number].map(&lerian_norm).reject(&:empty?)
         - lerian_refs = purchase_order_number.present? ? [[I18n.t('lerian.invoice.summary.purchase_order'), purchase_order_number]] : []
         - customer.metadata.displayable.order(created_at: :asc).each do |metadata|
-          - lerian_refs << [metadata.key, metadata.value] unless lerian_ids.include?(metadata.value.to_s.gsub(/\D/, ''))
+          - lerian_refs << [metadata.key, metadata.value] unless lerian_ids.include?(lerian_norm.call(metadata.value))
         - if lerian_refs.any?
           .summary.sum-refs
             - lerian_refs.each do |key, value|
