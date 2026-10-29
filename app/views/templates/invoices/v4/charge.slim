@@ -111,10 +111,10 @@ html
       .party .label { margin-bottom: 2px; }
       .party .party-name { color: var(--fg); font-weight: 500; font-size: 10px; line-height: 16px; }
       .party .body-2 { color: var(--muted); font-size: 9px; line-height: 13px; }
-      /* purchase order and customer metadata under the customer name: label as typed in Lago, value next to it,
-         one flowing line per entry (an aligned table squeezed the values to the width left by the longest label) */
-      .info-row { padding: 1px 0; font-size: 9px; line-height: 14px; overflow-wrap: anywhere; }
-      .info-key { color: var(--label); font-weight: 500; margin-right: 6px; }
+      /* purchase order and customer metadata under the customer name, set like the address lines: label as typed
+         in Lago in 500, a space, the value; one flowing line per entry (an aligned table squeezed the values) */
+      .info-row { color: var(--muted); font-size: 9px; line-height: 13px; overflow-wrap: anywhere; }
+      .info-key { font-weight: 500; }
       /* the value moves to the next line whole; it breaks only when wider than the column */
       .info-key + span { display: inline-block; max-width: 100%; }
 
@@ -259,6 +259,7 @@ html
             .label = I18n.t('invoice.bill_to')
             .party-name = customer.display_name
             - lerian_metadata = customer.metadata.displayable.order(created_at: :asc).to_a
+            - lerian_info_digits = lerian_metadata.map { |m| m.value.to_s.gsub(/\D/, '') }.reject(&:empty?)
             - if purchase_order_number.present? || lerian_metadata.any?
               .info-rows
                 - if purchase_order_number.present?
@@ -269,11 +270,11 @@ html
                   .info-row
                     span.info-key => metadata.key
                     span = metadata.value
-            - if customer.legal_number.present?
+            - if customer.legal_number.present? && !lerian_info_digits.include?(customer.legal_number.gsub(/\D/, ''))
               .body-2 #{customer.legal_number}
             == SlimHelper.render('templates/invoices/v4/_customer_address', self)
             .body-2 = customer.email
-            - if customer.tax_identification_number.present?
+            - if customer.tax_identification_number.present? && !lerian_info_digits.include?(customer.tax_identification_number.gsub(/\D/, ''))
               .body-2 = I18n.t('invoice.tax_identification_number', tax_identification_number: customer.tax_identification_number)
           .party
             .label = I18n.t('invoice.bill_from')

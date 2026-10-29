@@ -55,10 +55,13 @@ charges), `v4/fixed_charge.slim` and `v4/self_billed.slim`.
     they are (for `self_billed`, the billing entity is `Bill to` and the partner
     is `From`). Right under the customer name, before the address (where the
     reference invoice prints its CNPJ), the purchase order number (label
-    `Purchase order`) and the customer's displayable metadata follow as small
-    label/value lines: the label as typed in Lago, the value next to it, moving
-    whole to the next line when it does not fit. In `self_billed` they sit under
-    the partner, which is the customer record.
+    `Purchase order`) and the customer's displayable metadata follow, set like
+    the address lines (9px on 13px, muted): the label as typed in Lago in 500, a
+    space, the value, which moves whole to the next line when it does not fit.
+    The customer's legal number (bare line) or tax id (`Tax ID: …`) is not
+    printed again when a displayable metadata value has the same digits (the
+    labelled line already shows it); otherwise both lines stay as upstream. In
+    `self_billed` they sit under the partner, which is the customer record.
   - `Charges`: one table, `Description | Qty | Unit price | (Tax rate) |
     Amount (<currency>)`. The currency is printed once, in the head; amounts are
     bare numbers. Billing periods are group rows (`Usage · <from> – <to>`,

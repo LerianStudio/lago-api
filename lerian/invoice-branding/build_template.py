@@ -151,10 +151,10 @@ CSS = FONT_FACES + """
       .party .label { margin-bottom: 2px; }
       .party .party-name { color: var(--fg); font-weight: 500; font-size: 10px; line-height: 16px; }
       .party .body-2 { color: var(--muted); font-size: 9px; line-height: 13px; }
-      /* purchase order and customer metadata under the customer name: label as typed in Lago, value next to it,
-         one flowing line per entry (an aligned table squeezed the values to the width left by the longest label) */
-      .info-row { padding: 1px 0; font-size: 9px; line-height: 14px; overflow-wrap: anywhere; }
-      .info-key { color: var(--label); font-weight: 500; margin-right: 6px; }
+      /* purchase order and customer metadata under the customer name, set like the address lines: label as typed
+         in Lago in 500, a space, the value; one flowing line per entry (an aligned table squeezed the values) */
+      .info-row { color: var(--muted); font-size: 9px; line-height: 13px; overflow-wrap: anywhere; }
+      .info-key { font-weight: 500; }
       /* the value moves to the next line whole; it breaks only when wider than the column */
       .info-key + span { display: inline-block; max-width: 100%; }
 
@@ -333,6 +333,7 @@ def rail(key):
 
 CUSTOMER_NAME = "            .party-name = customer.display_name\n"
 CUSTOMER_INFO = """            - lerian_metadata = customer.metadata.displayable.order(created_at: :asc).to_a
+            - lerian_info_digits = lerian_metadata.map { |m| m.value.to_s.gsub(/\\D/, '') }.reject(&:empty?)
             - if purchase_order_number.present? || lerian_metadata.any?
               .info-rows
                 - if purchase_order_number.present?
@@ -383,6 +384,12 @@ def compose(src, name):
     # the purchase order number and the customer's displayable metadata sit right under the customer name, before
     # the address, as the reference puts its CNPJ (in Bill to; in self_billed the customer is the partner, From)
     parties_slim = replace_once(parties_slim, CUSTOMER_NAME, CUSTOMER_NAME + CUSTOMER_INFO, f"{name}: customer name")
+    # an identifier already printed as a labelled metadata line (same digits) is not printed again bare
+    for attr in ("legal_number", "tax_identification_number"):
+        line = f"            - if customer.{attr}.present?\n"
+        parties_slim = replace_once(parties_slim, line,
+            f"            - if customer.{attr}.present? && !lerian_info_digits.include?(customer.{attr}.gsub(/\\D/, ''))\n",
+            f"{name}: customer {attr}")
 
     amounts = amount_re.findall(body)
     assert len(amounts) == 1, f"{name}: expected one amount block upstream, found {len(amounts)}"
