@@ -2,3 +2,44 @@
 fr:
   document:
     page_numbering: Page %{current} sur %{total}
+  # Lerian invoice branding: English until translated (no translation missing errors)
+  lerian:
+    invoice:
+      status:
+        pending: "Pending payment"
+        succeeded: "Paid"
+        failed: "Payment failed"
+        voided: "Voided"
+      sections:
+        summary: "Summary"
+        parties: "Parties"
+        charges: "Charges"
+        total: "Total"
+        notes: "Notes"
+        appendix: "Usage by day"
+        details: "Details"
+        subscription_total: "Total"
+      summary:
+        amount_due: "Amount due"
+        due_date: "Due date"
+        issued: "Issued"
+        purchase_order: "Purchase order"
+        net_terms: "Net %{days}"
+      charges:
+        description: "Description"
+        qty: "Qty"
+        amount: "Amount (%{currency})"
+        subscription: "Subscription"
+        usage: "Usage"
+        subscription_and_usage: "Subscription and usage"
+        daily_detail: "Daily detail in Usage by day"
+      notes:
+        payment_detail: "Payment detail"
+        payment_reference: "Please reference %{number} on your payment."
+      appendix:
+        intro: "%{item} recorded per day, %{period}."
+        not_prorated: "Not prorated."
+        prorated: "Prorated by days active."
+        date: "Date"
+        days_active: "Days active"
+        total: "Total"

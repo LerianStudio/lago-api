@@ -94,7 +94,7 @@ RSpec.describe "templates/invoices/v4.slim" do
       end
 
       it "renders the purchase order number under the invoice number" do
-        expect(rendered_template).to include("Purchase Order Number")
+        expect(rendered_template).to include("Purchase order")
         expect(rendered_template).to include("PO-123")
       end
     end

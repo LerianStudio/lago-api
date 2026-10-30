@@ -14,6 +14,8 @@
         .body-3 = I18n.t('invoice.total_events', count: fee.events_count)
       - if fee.charge.prorated?
         .body-3 = I18n.t('invoice.fee_prorated')
+      - if fee.charge? && !fee.invoice.progressive_billing? && !fee.charge.pay_in_advance? && fee.billable_metric&.recurring? && %w[sum_agg unique_count_agg].include?(fee.billable_metric.aggregation_type.to_s) && fee.units.positive?
+        .body-3 = I18n.t('lerian.invoice.charges.daily_detail')
     td.body-2
     td.body-2
     td.body-2

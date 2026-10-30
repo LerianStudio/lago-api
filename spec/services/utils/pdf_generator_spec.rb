@@ -35,7 +35,6 @@ RSpec.describe Utils::PdfGenerator do
       expect(request_body).to include('src: local("Inter"), local("Inter-Regular"), url(data:font/woff2;base64,')
       expect(request_body).to include("font-display: swap;")
       expect(request_body).to include("font-family: Inter, sans-serif;")
-      expect(request_body).to include("Lerian Clients")
       expect(request_body).to match(/name="marginBottom"\s+0\.66\s/)
     end
 

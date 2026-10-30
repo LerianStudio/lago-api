@@ -1,0 +1,14 @@
+/ Lerian invoice branding (lerian/invoice-branding, generated): the issuer address in the customer's format and
+/ the document's locale, from upstream _customer_address with the billing entity's fields
+= Addressing::DefaultFormatter.new.format( \
+  Addressing::Address.new( \
+    address_line1: billing_entity.address_line1 || "",
+    address_line2: billing_entity.address_line2 || "",
+    locality: billing_entity.city || "",
+    postal_code: billing_entity.zipcode || "",
+    administrative_area: billing_entity.state || "",
+    country_code: billing_entity.country || "",
+    locale: customer.document_locale || billing_entity.document_locale \
+  ),
+  { locale: customer.document_locale || billing_entity.document_locale, html_tag: "div", html_attributes: { class: "body-2" } } \
+).html_safe

@@ -12,21 +12,42 @@ class MoneyHelper
     )
   end
 
-  # Lerian invoice branding (lerian/invoice-branding): renders a table amount as separate currency
-  # and number spans so currency codes and decimals line up across the invoice tables.
-  # Accepts a Money or an already formatted String; the currency may be a prefix or a suffix.
-  # A minus in the amount ("-1.00 BRL", "-BRL 1.00", "BRL -1.00", "R$-1.00") is taken apart from the
-  # currency and rendered once, in front of it, also when the sign argument is already "-".
-  def self.cell(money, sign = "")
+  # Lerian invoice branding (lerian/invoice-branding): renders a table amount as a bare number, because the
+  # invoice tables print the document currency once, in the amount column head. Accepts a Money or an already
+  # formatted String; the currency may be a prefix or a suffix. A fiat currency (ISO code or symbol) is dropped;
+  # any other unit, i.e. a pricing unit short name ("12.00 CREDITS"), stays as a suffix. With code: true the
+  # currency stays as a suffix too, as the ISO code for a Money (the amount due and the total).
+  # A minus in the amount ("-1.00 BRL", "-BRL 1.00", "BRL -1.00", "R$-1.00") is rendered once, in front of the
+  # number, also when the sign argument is already "-". The number is the one format produces, unchanged.
+  # A space, NBSP or narrow NBSP is a thousands separator ("1 234,56" in fr, nb, sv) only when exactly three digits
+  # follow and no letter or digit comes after them, so the gap before a suffix currency or a pricing unit that starts
+  # with a digit ("12.50 1ZZ") stays outside the number; the gaps match [[:space:]], NBSP included.
+  def self.cell(money, sign = "", code: false)
     text = money.is_a?(String) ? money : format(money).to_s
-    match = text.match(/\A\s*(-?)\s*(\D*?)\s*(-?)\s*(\d[\d.,]*)\s*(\D*?)\s*\z/)
+    match = text.match(/\A[[:space:]]*(-?)[[:space:]]*(\D*?)[[:space:]]*(-?)[[:space:]]*(\d(?:[\d.,]|[ \u00A0\u202F](?=\d{3}(?![\p{L}\d])))*)[[:space:]]*(.*?)[[:space:]]*\z/)
     currency = match ? (match[2].presence || match[5]) : ""
     number = match ? match[4] : text
     negative = match && (match[1] == "-" || match[3] == "-")
     prefix = (negative && !sign.include?("-")) ? "-#{sign}" : sign
+    unit = if code
+      money.respond_to?(:currency) ? money.currency.iso_code : currency
+    elsif !fiat_currency?(currency)
+      currency
+    end
 
-    "<span class=\"money\"><span class=\"cur\">#{ERB::Util.html_escape(prefix + currency)}</span>" \
-      "<span class=\"num\">#{ERB::Util.html_escape(number)}</span></span>"
+    html = "<span class=\"money\"><span class=\"num\">#{ERB::Util.html_escape(prefix + number)}</span>"
+    html += "<span class=\"cur\">#{ERB::Util.html_escape(unit)}</span>" if unit.present?
+    "#{html}</span>"
+  end
+
+  def self.fiat_currency?(text)
+    return false if text.blank?
+
+    SYMBOLS_CURRENCIES.include?(text) || Money::Currency.find(text).present? || fiat_symbols.include?(text)
+  end
+
+  def self.fiat_symbols
+    @fiat_symbols ||= Money::Currency.all.map(&:symbol).compact.to_set
   end
 
   def self.format_with_precision(amount_cents, currency)

@@ -1,10 +1,10 @@
 table.invoice-resume-table width="100%"
-  tr
-    td.body-2 = I18n.t('invoice.item')
-    td.body-2 = I18n.t('invoice.units')
+  tr.first_child
+    td.body-2 = I18n.t('lerian.invoice.charges.description')
+    td.body-2 = I18n.t('lerian.invoice.charges.qty')
     td.body-2 = I18n.t('invoice.unit_price')
     td.body-2 = I18n.t('invoice.tax_rate')
-    td.body-2 = I18n.t('invoice.amount')
+    td.body-2 = I18n.t('lerian.invoice.charges.amount', currency:)
   - if one_off?
     - fees.ordered_by_period.each do |fee|
       tr
@@ -18,6 +18,7 @@ table.invoice-resume-table width="100%"
         td.body-2 == TaxHelper.applied_taxes(fee)
         td.body-2 == MoneyHelper.cell((FeeDisplayHelper.format_amount(fee)))
 
+/! lerian:total
 table.total-table width="100%"
   tr
     td.body-2
@@ -37,7 +38,7 @@ table.total-table width="100%"
   - else
     tr
       td.body-2
-      td.body-2 = I18n.t('invoice.tax_name_with_details', name: 'Tax', rate: 0)
+      td.body-2 = I18n.t('invoice.tax_name_with_details', name: I18n.t('invoice.tax'), rate: 0)
       td.body-2 == MoneyHelper.cell((MoneyHelper.format(0.to_money(currency))))
   tr
     td.body-2
@@ -46,4 +47,4 @@ table.total-table width="100%"
   tr
     td.body-2
     td.body-1 = I18n.t('invoice.total')
-    td.body-1 == MoneyHelper.cell((MoneyHelper.format(total_amount)))
+    td.body-1 == MoneyHelper.cell(total_amount, code: true)

@@ -23,64 +23,106 @@ RSpec.describe MoneyHelper do
   end
 
   describe ".cell" do
-    def cell_html(currency, number)
-      "<span class=\"money\"><span class=\"cur\">#{currency}</span><span class=\"num\">#{number}</span></span>"
+    def cell_html(number, unit = nil)
+      unit_html = unit ? "<span class=\"cur\">#{unit}</span>" : ""
+      "<span class=\"money\"><span class=\"num\">#{number}</span>#{unit_html}</span>"
     end
 
-    it "splits a prefixed ISO code from the number" do
-      expect(helper.cell("BRL 1.234,56")).to eq(cell_html("BRL", "1.234,56"))
+    it "drops a prefixed ISO code" do
+      expect(helper.cell("BRL 1.234,56")).to eq(cell_html("1.234,56"))
     end
 
-    it "splits a prefixed symbol from the number" do
-      expect(helper.cell("$1,234.56")).to eq(cell_html("$", "1,234.56"))
+    it "drops a prefixed symbol" do
+      expect(helper.cell("$1,234.56")).to eq(cell_html("1,234.56"))
     end
 
-    it "splits a suffixed currency from the number" do
-      expect(helper.cell("1.234,56 €")).to eq(cell_html("€", "1.234,56"))
+    it "drops a suffixed fiat currency" do
+      expect(helper.cell("1.234,56 €")).to eq(cell_html("1.234,56"))
     end
 
-    it "prepends the sign to the currency" do
-      expect(helper.cell("$1,234.56", "-")).to eq(cell_html("-$", "1,234.56"))
+    it "keeps a pricing unit as a suffix" do
+      expect(helper.cell("12.50 CREDITS")).to eq(cell_html("12.50", "CREDITS"))
     end
 
-    it "keeps a suffixed currency on a negative amount" do
-      expect(helper.cell("-1.00 BRL")).to eq(cell_html("-BRL", "1.00"))
+    it "prepends the sign to the number" do
+      expect(helper.cell("$1,234.56", "-")).to eq(cell_html("-1,234.56"))
+    end
+
+    it "keeps the sign of a suffixed currency amount" do
+      expect(helper.cell("-1.00 BRL")).to eq(cell_html("-1.00"))
     end
 
     it "keeps a sign written before a prefixed currency" do
-      expect(helper.cell("-BRL 1.00")).to eq(cell_html("-BRL", "1.00"))
+      expect(helper.cell("-BRL 1.00")).to eq(cell_html("-1.00"))
     end
 
-    it "moves the minus of a prefixed ISO code amount in front of the currency" do
-      expect(helper.cell("BRL -1.00")).to eq(cell_html("-BRL", "1.00"))
+    it "moves the minus of a prefixed ISO code amount in front of the number" do
+      expect(helper.cell("BRL -1.00")).to eq(cell_html("-1.00"))
     end
 
-    it "moves the minus of a symbol amount in front of the currency" do
-      expect(helper.cell("R$-1.234,56")).to eq(cell_html("-R$", "1.234,56"))
+    it "moves the minus of a symbol amount in front of the number" do
+      expect(helper.cell("R$-1.234,56")).to eq(cell_html("-1.234,56"))
     end
 
     it "renders the sign once when the amount is already negative" do
-      expect(helper.cell("-1.00 BRL", "-")).to eq(cell_html("-BRL", "1.00"))
+      expect(helper.cell("-1.00 BRL", "-")).to eq(cell_html("-1.00"))
     end
 
-    it "formats a negative Money before splitting it" do
-      expect(helper.cell(Money.new(-123_456, "USD"))).to eq(cell_html("-$", "1,234.56"))
+    it "formats a negative Money before taking the number" do
+      expect(helper.cell(Money.new(-123_456, "USD"))).to eq(cell_html("-1,234.56"))
     end
 
-    it "formats a Money before splitting it" do
-      expect(helper.cell(Money.new(123_456, "USD"))).to eq(cell_html("$", "1,234.56"))
+    it "formats a Money before taking the number" do
+      expect(helper.cell(Money.new(123_456, "USD"))).to eq(cell_html("1,234.56"))
+    end
+
+    it "keeps the ISO code of a Money with code: true" do
+      expect(helper.cell(Money.new(123_456, "USD"), code: true)).to eq(cell_html("1,234.56", "USD"))
+    end
+
+    it "keeps the formatted currency of a String with code: true" do
+      expect(helper.cell("BRL 24,657.40", code: true)).to eq(cell_html("24,657.40", "BRL"))
     end
 
     it "keeps a plain String without currency as the number" do
-      expect(helper.cell("12.5")).to eq(cell_html("", "12.5"))
+      expect(helper.cell("12.5")).to eq(cell_html("12.5"))
     end
 
     it "keeps a String without digits whole and escapes it" do
-      expect(helper.cell("<b>N/A</b>")).to eq(cell_html("", "&lt;b&gt;N/A&lt;/b&gt;"))
+      expect(helper.cell("<b>N/A</b>")).to eq(cell_html("&lt;b&gt;N/A&lt;/b&gt;"))
     end
 
-    it "renders empty spans for nil" do
-      expect(helper.cell(nil)).to eq(cell_html("", ""))
+    it "renders an empty number for nil" do
+      expect(helper.cell(nil)).to eq(cell_html(""))
+    end
+
+    it "keeps space thousands separators in the number" do
+      expect(helper.cell("1 234,56 BRL")).to eq(cell_html("1 234,56"))
+    end
+
+    it "keeps the ISO code once after a number with space thousands separators" do
+      expect(helper.cell("1 234,56 BRL", code: true)).to eq(cell_html("1 234,56", "BRL"))
+    end
+
+    it "renders the sign once before a number with space thousands separators" do
+      expect(helper.cell("-1 234,56 BRL")).to eq(cell_html("-1 234,56"))
+    end
+
+    it "keeps NBSP and narrow NBSP thousands separators in the number" do
+      expect(helper.cell("1\u00A0234\u202F567,89\u00A0BRL")).to eq(cell_html("1\u00A0234\u202F567,89"))
+    end
+
+    it "keeps several space thousands separators in the number" do
+      expect(helper.cell("1 234 567,89 BRL")).to eq(cell_html("1 234 567,89"))
+    end
+
+    it "keeps a pricing unit that starts with a digit as the unit" do
+      expect(helper.cell("12.50 1ZZ")).to eq(cell_html("12.50", "1ZZ"))
+    end
+
+    it "renders a Money formatted in a locale with space thousands separators" do
+      html = I18n.with_locale(:fr) { helper.cell(Money.new(123_456, "BRL"), code: true) }
+      expect(html).to eq(cell_html("1 234,56", "BRL"))
     end
   end
 
