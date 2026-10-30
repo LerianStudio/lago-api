@@ -97,13 +97,6 @@ jobs:
             echo "Building for amd64 and arm64 (release tag)"
           fi
 
-      - name: Set up QEMU
-        if: contains(steps.platforms.outputs.platforms, 'arm64')
-        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
-
       # MANAGE_TOKEN first, as the shared workflow did: that org PAT (org
       # visibility `all`, so it reaches this public repo) created and pushed
       # every ghcr.io/lerianstudio/lago-api tag so far. GITHUB_TOKEN is only the
@@ -130,23 +123,88 @@ jobs:
           echo "image_tag=${TAG#v}" >> "$GITHUB_OUTPUT"
           echo "Extracted version: ${TAG}"
 
-      # Registry tags are immutable: abort before building rather than
-      # overwrite an image that is already published (the shared workflow's
-      # default `on_existing_tag: fail`). A failed lookup counts as "absent",
-      # so a flaky check never blocks a legitimate build.
+      # Registry tags are immutable: never rebuild or overwrite an image that
+      # is already published (the shared workflow's `on_existing_tag: fail`).
+      # A failed lookup counts as "absent", so a flaky check never blocks a
+      # legitimate build.
+      #
+      # An existing tag switches the job to recovery mode instead of failing:
+      # the image is pushed before it is signed, so if cosign could not be
+      # installed or every signing attempt failed, a rerun must still be able
+      # to sign it. In recovery mode every build step below is skipped and the
+      # existing digest is signed, but only when the image was built from this
+      # very commit (see the next step).
       - name: Pre-flight tag existence check
+        id: preflight
         env:
           IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
         run: |
           REF="${IMAGE}:${IMAGE_TAG}"
           if docker manifest inspect "$REF" >/dev/null 2>&1; then
-            echo "::error::Tag ${IMAGE_TAG} already exists (${REF}). Registry tags are immutable; aborting before rebuild."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag ${IMAGE_TAG} already exists (${REF}); no rebuild, checking whether it can be signed."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Tag ${IMAGE_TAG} not present in GHCR — proceeding with build."
+          fi
+
+      # Recovery mode: resolve the existing index digest and keep the
+      # immutability guard. metadata-action stamps the image with
+      # `org.opencontainers.image.revision` = the commit it was built from;
+      # sign only if that is this run's commit. A different revision means the
+      # git tag was moved after the image was published, and an absent label
+      # means the image was not built by this workflow: both fail, since
+      # signing would vouch for content this commit did not produce.
+      #
+      # `.Image` is the image config for a single-platform image and a map
+      # keyed by platform for a multi-platform index; the jq filter reads the
+      # label from either shape (linux/amd64 first, as every build has it).
+      - name: Resolve existing image digest (recovery mode)
+        id: existing
+        if: steps.preflight.outputs.exists == 'true'
+        env:
+          IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
+          EXPECTED_REVISION: ${{ github.sha }}
+        run: |
+          REF="${IMAGE}:${IMAGE_TAG}"
+          if ! MANIFEST="$(docker buildx imagetools inspect "$REF" --format '{{json .Manifest}}')" \
+            || ! CONFIG="$(docker buildx imagetools inspect "$REF" --format '{{json .Image}}')"; then
+            echo "::error::Tag ${IMAGE_TAG} exists but could not be inspected (${REF}); nothing signed. Rerun once the registry answers."
             exit 1
           fi
-          echo "Tag ${IMAGE_TAG} not present in GHCR — proceeding with build."
+
+          DIGEST="$(jq -r '.digest // empty' <<<"$MANIFEST")"
+          if [[ "$DIGEST" != sha256:* ]]; then
+            echo "::error::Tag ${IMAGE_TAG} exists but its digest could not be resolved ('${DIGEST}'); nothing to sign."
+            exit 1
+          fi
+
+          REVISION="$(jq -r '
+            (if has("config") then . else (.["linux/amd64"] // first(.[])) end)
+            | .config.Labels["org.opencontainers.image.revision"] // empty' <<<"$CONFIG")"
+          if [ -z "$REVISION" ]; then
+            echo "::error::Tag ${IMAGE_TAG} exists but carries no org.opencontainers.image.revision label, so it cannot be tied to this commit; refusing to sign or rebuild. Delete the tag deliberately if you really want to rebuild."
+            exit 1
+          fi
+          if [ "$REVISION" != "$EXPECTED_REVISION" ]; then
+            echo "::error::Tag ${IMAGE_TAG} exists but was built from ${REVISION}, not from this commit (${EXPECTED_REVISION}); refusing to sign or rebuild. Delete the tag deliberately if you really want to rebuild."
+            exit 1
+          fi
+
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "::notice::Tag ${IMAGE_TAG} already exists; recovery mode: signing existing digest ${DIGEST}, no rebuild."
+
+      - name: Set up QEMU
+        if: steps.preflight.outputs.exists != 'true' && contains(steps.platforms.outputs.platforms, 'arm64')
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4
+
+      - name: Set up Docker Buildx
+        if: steps.preflight.outputs.exists != 'true'
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
       - name: Docker metadata
         id: meta
+        if: steps.preflight.outputs.exists != 'true'
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: ${{ env.IMAGE }}
@@ -157,6 +215,7 @@ jobs:
       # semver; fail with a clear message instead of a confusing push error,
       # and make sure the published tag is exactly the git tag.
       - name: Verify image tag
+        if: steps.preflight.outputs.exists != 'true'
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
           EXPECTED: ${{ env.IMAGE }}:${{ steps.version.outputs.image_tag }}
@@ -180,6 +239,7 @@ jobs:
       # Dockerfile never mounts it, so it is not passed here.
       - name: Build and push Docker image
         id: build-push
+        if: steps.preflight.outputs.exists != 'true'
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
@@ -209,8 +269,8 @@ jobs:
           #
           # `ignore-error=true`: the cache is exported after the image push, and
           # a failed export must not fail this step. Otherwise cosign signing is
-          # skipped and a rerun stops at the pre-flight check (the tag now
-          # exists), leaving the release image unsigned.
+          # skipped and the release image stays unsigned until a rerun signs it
+          # in recovery mode (see the pre-flight check).
           cache-from: |
             type=registry,ref=${{ env.IMAGE }}:buildcache-amd64
             type=registry,ref=${{ env.IMAGE }}:buildcache-multi
@@ -222,6 +282,11 @@ jobs:
       # exponential backoff (×3, capped, equal jitter). The install is retried
       # once too: the image is already pushed and immutable at this point, so a
       # transient download failure must not leave the tag unsigned.
+      #
+      # The digest comes from the build step on a fresh tag, or from the
+      # recovery step when the tag already existed (only one of them runs). If
+      # signing still fails, rerunning the workflow signs the same digest
+      # through the recovery path.
       - name: Install cosign
         id: cosign-install
         continue-on-error: true
@@ -243,13 +308,13 @@ jobs:
 
       - name: Sign container image with cosign
         env:
-          DIGEST: ${{ steps.build-push.outputs.digest }}
+          DIGEST: ${{ steps.build-push.outputs.digest || steps.existing.outputs.digest }}
           MAX_ATTEMPTS: '5'
           INITIAL_DELAY: '5'
           MAX_DELAY: '60'
         run: |
           if [[ "$DIGEST" != sha256:* ]]; then
-            echo "::error::build-push-action returned no digest ('${DIGEST}'); nothing to sign."
+            echo "::error::Neither the build nor the recovery step returned a digest ('${DIGEST}'); nothing to sign."
             exit 1
           fi
           REF="${IMAGE}@${DIGEST}"
@@ -273,5 +338,5 @@ jobs:
             fi
           done
 
-          echo "::error::cosign sign failed after $MAX_ATTEMPTS attempts: $REF. The image is pushed but unsigned; sign it manually with 'cosign sign --yes $REF'."
+          echo "::error::cosign sign failed after $MAX_ATTEMPTS attempts: $REF. The image is pushed but unsigned; rerun this workflow to sign it in recovery mode, or as a last resort sign it manually with 'cosign sign --yes $REF'."
           exit 1
