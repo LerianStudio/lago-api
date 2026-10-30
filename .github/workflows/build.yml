@@ -1,6 +1,6 @@
 name: Build
 
-# Thin caller for the shared, language-agnostic Docker build workflow.
+# Self-contained Docker build for the fork's release line.
 # Publishes ghcr.io/lerianstudio/lago-api:<version> from the repo-root Dockerfile.
 #
 # This branch is the Lerian release line: upstream tag v1.51.0, plus the
@@ -8,28 +8,41 @@ name: Build
 # `.lerian-fork.yml`, and nothing else. It is deliberately NOT `main`.
 # `main` tracks upstream untouched, which is the reason this fork exists.
 #
+# Why the build is inline and not a call to the shared workflow:
+# LerianStudio/lago-api is a PUBLIC repository (a GitHub fork of
+# getlago/lago-api), and LerianStudio/github-actions-shared-workflows is
+# INTERNAL. GitHub does not let a public repository call a reusable workflow
+# (or composite action) that lives in an internal or private repository, so
+# `uses: LerianStudio/github-actions-shared-workflows/...` fails at parse time
+# with "workflow was not found" (run 41095659771, tag 1.51.0-lerian.5). A fork
+# cannot be made internal, so this file reproduces, step for step, what the
+# shared `build.yml@v1.56.0` did for this caller (GHCR only, single-app,
+# cosign on, no Docker Hub, no gitops artifacts, no Helm dispatch).
+#
+# Revisit when: the shared repository becomes callable from public repos again
+# (visibility back to public), or this fork moves to an internal repository.
+# Then go back to the thin caller (`uses: ...build.yml@<tag>` with
+# enable_dockerhub false, app_name lago-api, secrets inherit). Until then, when
+# bumping action pins, take them from the shared workflow so both stay aligned.
+#
 # Deliberately NOT used: semantic-release, beta/rc channels, gitops auto-bump,
-# Helm dispatch. Tags are cut by hand and the AWS gitops repo is bumped by PR
-# (the sauron precedent — note rosiehr does the opposite and auto-bumps).
+# Helm dispatch, Slack notify. Tags are cut by hand and the AWS gitops repo is
+# bumped by PR (the sauron precedent — note rosiehr does the opposite and
+# auto-bumps).
 
 on:
   push:
     tags:
       # The `<upstream-semver>-lerian.<n>` fork convention, e.g. 1.51.0-lerian.1:
       # the upstream release this image is built from, plus the revision of the
-      # Lerian patch on top of it. Iteration tags append `-rc.<n>`, which the
-      # shared workflow builds amd64-only (it hardcodes single-arch for any tag
-      # containing the literal `-rc`) — that is exactly what we want while
-      # iterating.
+      # Lerian patch on top of it. Iteration tags append `-rc.<n>`, which build
+      # amd64-only (any tag containing the literal `-rc` or `-beta`, as the
+      # shared workflow did) — that is exactly what we want while iterating.
       #
-      # ⛔ Never put `-v<digit>` in the tag: the shared workflow runs
-      # `VERSION=$(echo "$TAG" | sed 's/.*-\(v[0-9]\)/\1/')`, which would mangle
-      # it. And `+` is not a legal OCI tag character, so no build metadata.
-      #
-      # No leading `v`, and none is needed. The shared workflow's version sed
-      # only strips a monorepo `<app>-v<semver>` prefix, and metadata-action
-      # normalises a leading `v` away anyway, so `1.51.0-lerian.1` and
-      # `v1.51.0-lerian.1` publish the identical `:1.51.0-lerian.1`.
+      # `+` is not a legal OCI tag character, so no build metadata. No leading
+      # `v` is needed: metadata-action normalises a leading `v` away, so
+      # `1.51.0-lerian.1` and `v1.51.0-lerian.1` publish the identical
+      # `:1.51.0-lerian.1`.
       #
       # Narrower than `v*` on purpose: this cannot fire on an ad-hoc tag like
       # `nightly`, which is not valid semver and would leave metadata-action
@@ -38,85 +51,330 @@ on:
 
 # Least privilege. Every entry is load-bearing:
 #   contents: read   -> actions/checkout of the tagged ref
-#   packages: write  -> push to ghcr.io/lerianstudio/*
-#   id-token: write  -> cosign keyless OIDC signing, which is on by default
-#                       upstream (enable_cosign_sign) and left on here
-# A reusable workflow cannot exceed the caller's grant, so dropping id-token
-# would fail signing at runtime rather than at parse time.
+#   packages: write  -> push to ghcr.io/lerianstudio/* if the GITHUB_TOKEN
+#                       fallback is used for the GHCR login
+#   id-token: write  -> cosign keyless OIDC signing
 permissions:
   contents: read
   packages: write
   id-token: write
 
+env:
+  IMAGE: ghcr.io/lerianstudio/lago-api
+
 jobs:
   build:
-    uses: LerianStudio/github-actions-shared-workflows/.github/workflows/build.yml@v1.56.0
-    with:
-      # ─── Registry: GHCR only ───────────────────────────────────────────────
-      # enable_dockerhub defaults to TRUE upstream, so this MUST be set false or
-      # the build also publishes lerianstudio/lago-api to Docker Hub. That is
-      # not somewhere a license-unlocked image belongs, and it would need
-      # DOCKER_USERNAME / DOCKERHUB_IMAGE_PUSH_TOKEN besides.
-      enable_dockerhub: false
-      # Already the default; stated because it is the point of this file and it
-      # is what makes secrets.MANAGE_TOKEN load-bearing below.
-      enable_ghcr: true
-      # ghcr_org omitted: empty falls back to the lowercased repository owner,
-      # which is already `lerianstudio`.
+    name: Build lago-api
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          persist-credentials: false
 
-      # ─── Image name ────────────────────────────────────────────────────────
-      # Equal to the repository name today, so redundant — pinned anyway so a
-      # repository rename cannot silently retarget the image, and so the
-      # published name is greppable from this file.
-      app_name: lago-api
-
-      # dockerfile_name and build_context stay at their defaults. Leaving
-      # filter_paths empty selects single-app mode, which resolves the
-      # Dockerfile to ./Dockerfile with context . and skips monorepo change
-      # detection entirely.
+      # Same rule as the shared workflow: `-beta`/`-rc` tags build amd64 only,
+      # every other tag builds amd64+arm64. `cache_suffix` names the registry
+      # cache ref for that platform set (see the build step).
       #
-      # docker_build_args is intentionally NOT set. The v1.51.0 Dockerfile
-      # still declares SEGMENT_WRITE_KEY, GOCARDLESS_CLIENT_ID and
+      # ⚠ KNOWN COST: a stable `<semver>-lerian.<n>` tag produces linux/amd64
+      # AND linux/arm64. The arm64 leg runs under QEMU and compiles this image's
+      # native gems, so expect a slow build. Accepted deliberately: the cluster
+      # pulls amd64 from the manifest and the cost is CI minutes on a build we
+      # cut by hand. Now that the build is inline, dropping arm64 is a one-line
+      # change here if it ever stops being worth it.
+      - name: Set platforms based on tag type
+        id: platforms
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [[ "$TAG" == *"-beta"* ]] || [[ "$TAG" == *"-rc"* ]]; then
+            echo "platforms=linux/amd64" >> "$GITHUB_OUTPUT"
+            echo "cache_suffix=amd64" >> "$GITHUB_OUTPUT"
+            echo "Building for amd64 only (beta/rc tag)"
+          else
+            echo "platforms=linux/amd64,linux/arm64" >> "$GITHUB_OUTPUT"
+            echo "cache_suffix=multi" >> "$GITHUB_OUTPUT"
+            echo "Building for amd64 and arm64 (release tag)"
+          fi
+
+      # MANAGE_TOKEN first, as the shared workflow did: that org PAT (org
+      # visibility `all`, so it reaches this public repo) created and pushed
+      # every ghcr.io/lerianstudio/lago-api tag so far. GITHUB_TOKEN is only the
+      # fallback when the secret is absent (a missing secret evaluates to
+      # empty), and it can push only if the package grants this repository
+      # Write access (Package settings -> Manage Actions access).
+      - name: Log in to GHCR
+        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.MANAGE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      # The shared workflow stripped a monorepo `<app>-v<semver>` prefix with
+      # `sed 's/.*-\(v[0-9]\)/\1/'`. A fork tag has no such prefix, so the sed
+      # was the identity: the version is the git tag itself, and the image tag
+      # is that version without a leading `v`.
+      - name: Extract version from tag
+        id: version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          echo "version=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "image_tag=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "Extracted version: ${TAG}"
+
+      # Registry tags are immutable: never rebuild or overwrite an image that
+      # is already published (the shared workflow's `on_existing_tag: fail`).
+      # A failed lookup counts as "absent", so a flaky check never blocks a
+      # legitimate build.
+      #
+      # An existing tag switches the job to recovery mode instead of failing:
+      # the image is pushed before it is signed, so if cosign could not be
+      # installed or every signing attempt failed, a rerun must still be able
+      # to sign it. In recovery mode every build step below is skipped and the
+      # existing digest is signed, but only when the image was built from this
+      # very commit (see the next step).
+      - name: Pre-flight tag existence check
+        id: preflight
+        env:
+          IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
+        run: |
+          REF="${IMAGE}:${IMAGE_TAG}"
+          if docker manifest inspect "$REF" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag ${IMAGE_TAG} already exists (${REF}); no rebuild, checking whether it can be signed."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Tag ${IMAGE_TAG} not present in GHCR — proceeding with build."
+          fi
+
+      # Recovery mode: resolve the existing index digest and keep the
+      # immutability guard. metadata-action stamps the image with
+      # `org.opencontainers.image.revision` = the commit it was built from;
+      # sign only if that is this run's commit. A different revision means the
+      # git tag was moved after the image was published, and an absent label
+      # means the image was not built by this workflow: both fail, since
+      # signing would vouch for content this commit did not produce.
+      #
+      # The tag is inspected once, only to resolve the digest; the config is
+      # then read from `${IMAGE}@${DIGEST}`. Tags are mutable, so two lookups
+      # of the tag could see different images if it moved in between; pinning
+      # the second lookup to the digest makes the revision check apply to the
+      # exact digest that is signed.
+      #
+      # `.Image` is the image config for a single-platform image and a map
+      # keyed by platform for a multi-platform index. Every platform config
+      # must carry the expected revision: the signature covers the whole
+      # index, so one platform built from another commit (or without the
+      # label) is enough to refuse. Attestation entries (`unknown/unknown`)
+      # carry no image config and are skipped.
+      - name: Resolve existing image digest (recovery mode)
+        id: existing
+        if: steps.preflight.outputs.exists == 'true'
+        env:
+          IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
+          EXPECTED_REVISION: ${{ github.sha }}
+        run: |
+          REF="${IMAGE}:${IMAGE_TAG}"
+          if ! MANIFEST="$(docker buildx imagetools inspect "$REF" --format '{{json .Manifest}}')"; then
+            echo "::error::Tag ${IMAGE_TAG} exists but could not be inspected (${REF}); nothing signed. Rerun once the registry answers."
+            exit 1
+          fi
+
+          DIGEST="$(jq -r '.digest // empty' <<<"$MANIFEST")"
+          if [[ "$DIGEST" != sha256:* ]]; then
+            echo "::error::Tag ${IMAGE_TAG} exists but its digest could not be resolved ('${DIGEST}'); nothing to sign."
+            exit 1
+          fi
+
+          PINNED="${IMAGE}@${DIGEST}"
+          if ! CONFIG="$(docker buildx imagetools inspect "$PINNED" --format '{{json .Image}}')"; then
+            echo "::error::Tag ${IMAGE_TAG} exists but could not be inspected (${PINNED}); nothing signed. Rerun once the registry answers."
+            exit 1
+          fi
+
+          # One "<platform> <revision>" line per platform config; `-` when the
+          # label is absent.
+          if ! REVISIONS="$(jq -r '
+            (if has("config") then {"(single-platform)": .} else . end)
+            | to_entries[]
+            | select(.key != "unknown/unknown")
+            | "\(.key) \(.value.config.Labels["org.opencontainers.image.revision"] // "-")"' <<<"$CONFIG")"; then
+            echo "::error::Tag ${IMAGE_TAG} exists but its image config could not be parsed (${PINNED}); nothing signed."
+            exit 1
+          fi
+          if [ -z "$REVISIONS" ]; then
+            echo "::error::Tag ${IMAGE_TAG} exists but no platform config was found (${PINNED}); refusing to sign or rebuild."
+            exit 1
+          fi
+
+          missing=()
+          mismatched=()
+          while read -r platform revision; do
+            echo "${platform}: revision ${revision}"
+            if [ "$revision" = "-" ]; then
+              missing+=("$platform")
+            elif [ "$revision" != "$EXPECTED_REVISION" ]; then
+              mismatched+=("${platform}=${revision}")
+            fi
+          done <<<"$REVISIONS"
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Tag ${IMAGE_TAG} exists but carries no org.opencontainers.image.revision label on ${missing[*]}, so it cannot be tied to this commit; refusing to sign or rebuild. Delete the tag deliberately if you really want to rebuild."
+          fi
+          if [ "${#mismatched[@]}" -gt 0 ]; then
+            echo "::error::Tag ${IMAGE_TAG} exists but was built from ${mismatched[*]}, not from this commit (${EXPECTED_REVISION}); refusing to sign or rebuild. Delete the tag deliberately if you really want to rebuild."
+          fi
+          if [ "${#missing[@]}" -gt 0 ] || [ "${#mismatched[@]}" -gt 0 ]; then
+            exit 1
+          fi
+
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "::notice::Tag ${IMAGE_TAG} already exists; recovery mode: signing existing digest ${DIGEST}, no rebuild."
+
+      - name: Set up QEMU
+        if: steps.preflight.outputs.exists != 'true' && contains(steps.platforms.outputs.platforms, 'arm64')
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4
+
+      - name: Set up Docker Buildx
+        if: steps.preflight.outputs.exists != 'true'
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Docker metadata
+        id: meta
+        if: steps.preflight.outputs.exists != 'true'
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.version.outputs.version }}
+
+      # metadata-action yields an empty tag list for a tag that is not valid
+      # semver; fail with a clear message instead of a confusing push error,
+      # and make sure the published tag is exactly the git tag.
+      - name: Verify image tag
+        if: steps.preflight.outputs.exists != 'true'
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          EXPECTED: ${{ env.IMAGE }}:${{ steps.version.outputs.image_tag }}
+        run: |
+          if [ "$TAGS" != "$EXPECTED" ]; then
+            echo "::error::Unexpected image tags '${TAGS}', expected exactly '${EXPECTED}'. Is the git tag valid semver?"
+            exit 1
+          fi
+          echo "Publishing ${EXPECTED}"
+
+      # docker_build_args stay unset, as in the thin caller: the v1.51.0
+      # Dockerfile still declares SEGMENT_WRITE_KEY, GOCARDLESS_CLIENT_ID and
       # GOCARDLESS_CLIENT_SECRET as build args that upstream CI bakes into the
       # public image as ENV. A Lerian build has none of those credentials and
       # should not: verified against the live installation that no payment
-      # provider of any kind is configured (payment_providers,
-      # payment_provider_customers, payments and payment_requests are all
-      # empty), and that the GoCardless OAuth connect flow — the only consumer
-      # of those two vars — is already inoperable there because
-      # LAGO_OAUTH_PROXY_URL is unset. Nothing regresses by leaving them empty.
+      # provider of any kind is configured, and that the GoCardless OAuth
+      # connect flow — the only consumer of those two vars — is already
+      # inoperable there because LAGO_OAUTH_PROXY_URL is unset.
+      #
+      # The shared workflow also passed a `github_token` BuildKit secret; this
+      # Dockerfile never mounts it, so it is not passed here.
+      - name: Build and push Docker image
+        id: build-push
+        if: steps.preflight.outputs.exists != 'true'
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ steps.platforms.outputs.platforms }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Pinned by digest like the action SHAs above, and bumped together
+          # with them; `:latest` stays only so the reference reads as a name.
+          sbom: generator=docker/scout-sbom-indexer:latest@sha256:cdf69767d010bd4e8d33001fbb629cdc5210e37a67cdecc800bdcacf3bc996b0
+          provenance: mode=max
+          # Registry cache, not `type=gha`: GitHub restores Actions cache entries
+          # only from the current ref or the default branch. This workflow runs
+          # only on tag pushes, each tag is a new ref, and the default branch
+          # (`main`, the upstream mirror) never runs it, so a gha cache would
+          # never hit. This adds two tags to the same GHCR package,
+          # `buildcache-amd64` (beta/rc builds) and `buildcache-multi` (release
+          # builds); the pre-flight check and the image tag guard look only at
+          # the release tag, so they ignore both.
+          #
+          # One ref per platform set, because a registry cache export replaces
+          # whatever is at its ref: with a single ref, an amd64-only rc build
+          # would drop the arm64 records a release build left there. Both refs
+          # are imported, so either kind of build reuses the other's amd64
+          # layers.
+          #
+          # `ignore-error=true`: the cache is exported after the image push, and
+          # a failed export must not fail this step. Otherwise cosign signing is
+          # skipped and the release image stays unsigned until a rerun signs it
+          # in recovery mode (see the pre-flight check).
+          cache-from: |
+            type=registry,ref=${{ env.IMAGE }}:buildcache-amd64
+            type=registry,ref=${{ env.IMAGE }}:buildcache-multi
+          cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache-${{ steps.platforms.outputs.cache_suffix }},mode=max,ignore-error=true
 
-      # ─── Release plumbing: off ─────────────────────────────────────────────
-      # The AWS gitops repo is bumped by PR, so there is no artifact to hand to
-      # gitops-update.yml. That workflow resolves clusters from
-      # config/deployment-matrix.yml, which has no devops/AWS entry at all.
-      enable_gitops_artifacts: false
-      # No Helm chart is driven from this image. Not merely cosmetic: this tag
-      # shape yields is_release=true upstream, so dispatch WOULD fire if this
-      # were flipped on with a chart configured.
-      enable_helm_dispatch: false
+      # ----------------- Cosign Image Signing -----------------
+      # Mirrors the shared cosign-sign composite: same installer pin and cosign
+      # version, keyless OIDC signing of the pushed digest, retried with
+      # exponential backoff (×3, capped, equal jitter). The install is retried
+      # once too: the image is already pushed and immutable at this point, so a
+      # transient download failure must not leave the tag unsigned.
+      #
+      # The digest comes from the build step on a fresh tag, or from the
+      # recovery step when the tag already existed (only one of them runs). If
+      # signing still fails, rerunning the workflow signs the same digest
+      # through the recovery path.
+      - name: Install cosign
+        id: cosign-install
+        continue-on-error: true
+        uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
+        with:
+          cosign-release: v2.5.0
 
-      # runner_type is deliberately omitted: the org variable GENERAL_RUNNERS
-      # takes precedence over it in the shared workflow's runs-on expression,
-      # which makes the input a no-op. Use build_runner_type if this build ever
-      # needs a bigger box.
+      - name: Wait before retrying the cosign install
+        if: steps.cosign-install.outcome == 'failure'
+        run: |
+          echo "::warning::Installing cosign failed — most likely transient egress toward the GitHub release assets. Retrying once in 15s."
+          sleep 15
 
-    # ⛔ MANDATORY, not stylistic. build.yml declares NO `secrets:` block on its
-    # workflow_call and reads secrets.MANAGE_TOKEN implicitly for the GHCR
-    # login. Without `inherit` the login gets an empty password and fails.
-    # MANAGE_TOKEN has org visibility `all`, so it reaches this public repo.
-    # SLACK_WEBHOOK_URL is `private` and therefore absent here — harmless, the
-    # notify step declares it optional and skips cleanly.
-    secrets: inherit
+      - name: Install cosign (retry)
+        if: steps.cosign-install.outcome == 'failure'
+        uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
+        with:
+          cosign-release: v2.5.0
 
-# ⚠ KNOWN COST: a stable `<semver>-lerian.<n>` tag produces linux/amd64 AND
-# linux/arm64.
-# The shared workflow hardcodes amd64-only for tags containing the literal
-# `-beta` or `-rc`, and multi-arch for everything else; there is no input to
-# turn arm64 off. A stable tag is a valid semver prerelease but says `lerian`,
-# so it takes the multi-arch branch — an `-rc.<n>` tag does not, which is why
-# iteration goes through `-rc`. The arm64 leg runs under QEMU and compiles this
-# image's native gems, so expect a slow build. Accepted deliberately rather
-# than distorting the tag: the cluster pulls amd64 from the manifest and the
-# cost is CI minutes on a build we cut by hand. The durable fix is a `platforms`
-# input upstream in github-actions-shared-workflows.
+      - name: Sign container image with cosign
+        env:
+          DIGEST: ${{ steps.build-push.outputs.digest || steps.existing.outputs.digest }}
+          MAX_ATTEMPTS: '5'
+          INITIAL_DELAY: '5'
+          MAX_DELAY: '60'
+        run: |
+          if [[ "$DIGEST" != sha256:* ]]; then
+            echo "::error::Neither the build nor the recovery step returned a digest ('${DIGEST}'); nothing to sign."
+            exit 1
+          fi
+          REF="${IMAGE}@${DIGEST}"
+          cosign version
+
+          delay="$INITIAL_DELAY"
+          for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
+            echo "Signing (attempt $attempt/$MAX_ATTEMPTS): $REF"
+            if cosign sign --yes "$REF"; then
+              echo "::notice::Signed $REF"
+              exit 0
+            fi
+            if [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
+              capped="$delay"
+              [ "$capped" -gt "$MAX_DELAY" ] && capped="$MAX_DELAY"
+              half=$((capped / 2))
+              sleep_time=$((half + RANDOM % (half + 1)))
+              echo "::warning::cosign sign failed (attempt $attempt/$MAX_ATTEMPTS) — retrying in ${sleep_time}s…"
+              sleep "$sleep_time"
+              delay=$((delay * 3))
+            fi
+          done
+
+          echo "::error::cosign sign failed after $MAX_ATTEMPTS attempts: $REF. The image is pushed but unsigned; rerun this workflow to sign it in recovery mode, or as a last resort sign it manually with 'cosign sign --yes $REF'."
+          exit 1
