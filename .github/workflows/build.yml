@@ -163,8 +163,11 @@ jobs:
       # exact digest that is signed.
       #
       # `.Image` is the image config for a single-platform image and a map
-      # keyed by platform for a multi-platform index; the jq filter reads the
-      # label from either shape (linux/amd64 first, as every build has it).
+      # keyed by platform for a multi-platform index. Every platform config
+      # must carry the expected revision: the signature covers the whole
+      # index, so one platform built from another commit (or without the
+      # label) is enough to refuse. Attestation entries (`unknown/unknown`)
+      # carry no image config and are skipped.
       - name: Resolve existing image digest (recovery mode)
         id: existing
         if: steps.preflight.outputs.exists == 'true'
@@ -190,15 +193,39 @@ jobs:
             exit 1
           fi
 
-          REVISION="$(jq -r '
-            (if has("config") then . else (.["linux/amd64"] // first(.[])) end)
-            | .config.Labels["org.opencontainers.image.revision"] // empty' <<<"$CONFIG")"
-          if [ -z "$REVISION" ]; then
-            echo "::error::Tag ${IMAGE_TAG} exists but carries no org.opencontainers.image.revision label, so it cannot be tied to this commit; refusing to sign or rebuild. Delete the tag deliberately if you really want to rebuild."
+          # One "<platform> <revision>" line per platform config; `-` when the
+          # label is absent.
+          if ! REVISIONS="$(jq -r '
+            (if has("config") then {"(single-platform)": .} else . end)
+            | to_entries[]
+            | select(.key != "unknown/unknown")
+            | "\(.key) \(.value.config.Labels["org.opencontainers.image.revision"] // "-")"' <<<"$CONFIG")"; then
+            echo "::error::Tag ${IMAGE_TAG} exists but its image config could not be parsed (${PINNED}); nothing signed."
             exit 1
           fi
-          if [ "$REVISION" != "$EXPECTED_REVISION" ]; then
-            echo "::error::Tag ${IMAGE_TAG} exists but was built from ${REVISION}, not from this commit (${EXPECTED_REVISION}); refusing to sign or rebuild. Delete the tag deliberately if you really want to rebuild."
+          if [ -z "$REVISIONS" ]; then
+            echo "::error::Tag ${IMAGE_TAG} exists but no platform config was found (${PINNED}); refusing to sign or rebuild."
+            exit 1
+          fi
+
+          missing=()
+          mismatched=()
+          while read -r platform revision; do
+            echo "${platform}: revision ${revision}"
+            if [ "$revision" = "-" ]; then
+              missing+=("$platform")
+            elif [ "$revision" != "$EXPECTED_REVISION" ]; then
+              mismatched+=("${platform}=${revision}")
+            fi
+          done <<<"$REVISIONS"
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Tag ${IMAGE_TAG} exists but carries no org.opencontainers.image.revision label on ${missing[*]}, so it cannot be tied to this commit; refusing to sign or rebuild. Delete the tag deliberately if you really want to rebuild."
+          fi
+          if [ "${#mismatched[@]}" -gt 0 ]; then
+            echo "::error::Tag ${IMAGE_TAG} exists but was built from ${mismatched[*]}, not from this commit (${EXPECTED_REVISION}); refusing to sign or rebuild. Delete the tag deliberately if you really want to rebuild."
+          fi
+          if [ "${#missing[@]}" -gt 0 ] || [ "${#mismatched[@]}" -gt 0 ]; then
             exit 1
           fi
 
