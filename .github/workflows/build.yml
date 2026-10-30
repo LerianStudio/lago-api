@@ -73,7 +73,8 @@ jobs:
           persist-credentials: false
 
       # Same rule as the shared workflow: `-beta`/`-rc` tags build amd64 only,
-      # every other tag builds amd64+arm64.
+      # every other tag builds amd64+arm64. `cache_suffix` names the registry
+      # cache ref for that platform set (see the build step).
       #
       # ⚠ KNOWN COST: a stable `<semver>-lerian.<n>` tag produces linux/amd64
       # AND linux/arm64. The arm64 leg runs under QEMU and compiles this image's
@@ -88,9 +89,11 @@ jobs:
         run: |
           if [[ "$TAG" == *"-beta"* ]] || [[ "$TAG" == *"-rc"* ]]; then
             echo "platforms=linux/amd64" >> "$GITHUB_OUTPUT"
+            echo "cache_suffix=amd64" >> "$GITHUB_OUTPUT"
             echo "Building for amd64 only (beta/rc tag)"
           else
             echo "platforms=linux/amd64,linux/arm64" >> "$GITHUB_OUTPUT"
+            echo "cache_suffix=multi" >> "$GITHUB_OUTPUT"
             echo "Building for amd64 and arm64 (release tag)"
           fi
 
@@ -193,11 +196,25 @@ jobs:
           # only from the current ref or the default branch. This workflow runs
           # only on tag pushes, each tag is a new ref, and the default branch
           # (`main`, the upstream mirror) never runs it, so a gha cache would
-          # never hit. This adds a `buildcache` tag to the same GHCR package;
-          # the pre-flight check and the image tag guard look only at the
-          # release tag, so they ignore it.
-          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
-          cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache,mode=max
+          # never hit. This adds two tags to the same GHCR package,
+          # `buildcache-amd64` (beta/rc builds) and `buildcache-multi` (release
+          # builds); the pre-flight check and the image tag guard look only at
+          # the release tag, so they ignore both.
+          #
+          # One ref per platform set, because a registry cache export replaces
+          # whatever is at its ref: with a single ref, an amd64-only rc build
+          # would drop the arm64 records a release build left there. Both refs
+          # are imported, so either kind of build reuses the other's amd64
+          # layers.
+          #
+          # `ignore-error=true`: the cache is exported after the image push, and
+          # a failed export must not fail this step. Otherwise cosign signing is
+          # skipped and a rerun stops at the pre-flight check (the tag now
+          # exists), leaving the release image unsigned.
+          cache-from: |
+            type=registry,ref=${{ env.IMAGE }}:buildcache-amd64
+            type=registry,ref=${{ env.IMAGE }}:buildcache-multi
+          cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache-${{ steps.platforms.outputs.cache_suffix }},mode=max,ignore-error=true
 
       # ----------------- Cosign Image Signing -----------------
       # Mirrors the shared cosign-sign composite: same installer pin and cosign
