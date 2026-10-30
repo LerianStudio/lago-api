@@ -185,10 +185,19 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          sbom: generator=docker/scout-sbom-indexer:latest
+          # Pinned by digest like the action SHAs above, and bumped together
+          # with them; `:latest` stays only so the reference reads as a name.
+          sbom: generator=docker/scout-sbom-indexer:latest@sha256:cdf69767d010bd4e8d33001fbb629cdc5210e37a67cdecc800bdcacf3bc996b0
           provenance: mode=max
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Registry cache, not `type=gha`: GitHub restores Actions cache entries
+          # only from the current ref or the default branch. This workflow runs
+          # only on tag pushes, each tag is a new ref, and the default branch
+          # (`main`, the upstream mirror) never runs it, so a gha cache would
+          # never hit. This adds a `buildcache` tag to the same GHCR package;
+          # the pre-flight check and the image tag guard look only at the
+          # release tag, so they ignore it.
+          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache,mode=max
 
       # ----------------- Cosign Image Signing -----------------
       # Mirrors the shared cosign-sign composite: same installer pin and cosign
