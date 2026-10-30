@@ -156,6 +156,12 @@ jobs:
       # means the image was not built by this workflow: both fail, since
       # signing would vouch for content this commit did not produce.
       #
+      # The tag is inspected once, only to resolve the digest; the config is
+      # then read from `${IMAGE}@${DIGEST}`. Tags are mutable, so two lookups
+      # of the tag could see different images if it moved in between; pinning
+      # the second lookup to the digest makes the revision check apply to the
+      # exact digest that is signed.
+      #
       # `.Image` is the image config for a single-platform image and a map
       # keyed by platform for a multi-platform index; the jq filter reads the
       # label from either shape (linux/amd64 first, as every build has it).
@@ -167,8 +173,7 @@ jobs:
           EXPECTED_REVISION: ${{ github.sha }}
         run: |
           REF="${IMAGE}:${IMAGE_TAG}"
-          if ! MANIFEST="$(docker buildx imagetools inspect "$REF" --format '{{json .Manifest}}')" \
-            || ! CONFIG="$(docker buildx imagetools inspect "$REF" --format '{{json .Image}}')"; then
+          if ! MANIFEST="$(docker buildx imagetools inspect "$REF" --format '{{json .Manifest}}')"; then
             echo "::error::Tag ${IMAGE_TAG} exists but could not be inspected (${REF}); nothing signed. Rerun once the registry answers."
             exit 1
           fi
@@ -176,6 +181,12 @@ jobs:
           DIGEST="$(jq -r '.digest // empty' <<<"$MANIFEST")"
           if [[ "$DIGEST" != sha256:* ]]; then
             echo "::error::Tag ${IMAGE_TAG} exists but its digest could not be resolved ('${DIGEST}'); nothing to sign."
+            exit 1
+          fi
+
+          PINNED="${IMAGE}@${DIGEST}"
+          if ! CONFIG="$(docker buildx imagetools inspect "$PINNED" --format '{{json .Image}}')"; then
+            echo "::error::Tag ${IMAGE_TAG} exists but could not be inspected (${PINNED}); nothing signed. Rerun once the registry answers."
             exit 1
           fi
 
